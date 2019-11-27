@@ -73,6 +73,8 @@ do
 		numUniqScores=$(sed '1d' $outputDir/$input.log | awk '{ print $3 }' | uniq | wc -l)
 		if [ "$numUniqScores" -lt "$minUniqScores" ]; then
 			echo -e "\n${bold}[WARNING] Your software produces $numUniqScores unique match scores, which is less than 50% unique match score values.  In order to conduct useful analysis, we highly recommend that you fix your software such that it generates at least 50% unique match scores on this validation set.${normal}"
+		else
+			echo -e "\n${bold}[INFO] Your software produces $numUniqScores unique match scores from $numInputLines match attempts, and at least $minUniqScores match scores is required.${normal}"
 		fi
 	fi	
 done
