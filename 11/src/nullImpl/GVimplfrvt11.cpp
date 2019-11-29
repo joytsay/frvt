@@ -360,28 +360,34 @@ NullImplFRVT11::createTemplate(
                 // << "[" << FR_emb[0] << ", " << FR_emb[1] << ", " << FR_emb[127] << ", " << FR_emb[510] << ", " << FR_emb[511] << "] " << slog::endl;
             } //detected faces vector array
 // std::cout<<"14.5"<<endl;
+            std::vector<float> fv;
             if(prev_detection_results.size() == 0){ //for no FD found give false eyes detected bool and zero coordinates
                 eyeCoordinates.push_back(EyePair(false, false, 0, 0, 0, 0));
                 std::string detectFailFileName = "detectFail/" + to_string(detectFailCount) + ".jpg";
                 detectFailCount ++;
                 cv::imwrite(detectFailFileName, frame);
+                fv.resize(FR_EMBEDDING_SIZE);
+                for(int emb = 0; emb < FR_EMBEDDING_SIZE; emb++){
+                    fv.push_back(0.0);
+                }
                 // return ReturnStatus(ReturnCode::FaceDetectionError);
+            }else{
+                // --------------------------- Assign 512-D embedded features vector -----------------------------------
+                //std::vector<float> fv = {1.0, 2.0, 8.88, 765.88989};
+                for(int emb = 0; emb < FR_EMBEDDING_SIZE; emb++){
+                    fv.push_back(FR_emb[emb]);
+                }
+        // std::cout<<"14.6"<<endl;
+                // -----------------------------------------------------------------------------------------------------
             }
+            const uint8_t* bytes = reinterpret_cast<const uint8_t*>(fv.data());
+            int dataSize = sizeof(float) * fv.size();
+            templ.resize(dataSize);
+            std::memcpy(templ.data(), bytes, dataSize);
+            slog::info << "FR features size: "<<fv.size()<< " fv[0,1,127,510,511]: " 
+            << "[" << fv[0] << ", " << fv[1] << ", " << fv[127] << ", " << fv[510] << ", " << fv[511] << "] " << slog::endl;
         } //faces vector size array
-        // --------------------------- Assign 512-D embedded features vector -----------------------------------
-        //std::vector<float> fv = {1.0, 2.0, 8.88, 765.88989};
-        std::vector<float> fv;
-        for(int emb = 0; emb < FR_EMBEDDING_SIZE; emb++){
-            fv.push_back(FR_emb[emb]);
-        }
-        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(fv.data());
-        int dataSize = sizeof(float) * fv.size();
-        templ.resize(dataSize);
-        std::memcpy(templ.data(), bytes, dataSize);
-        slog::info << "FR features size: "<<fv.size()<< " fv[0,1,127,510,511]: " 
-        << "[" << fv[0] << ", " << fv[1] << ", " << fv[127] << ", " << fv[510] << ", " << fv[511] << "] " << slog::endl;
-// std::cout<<"14.6"<<endl;
-        // -----------------------------------------------------------------------------------------------------
+
     } catch (const std::exception & ex) {
         std::cerr << ex.what() << std::endl;
     }

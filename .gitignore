@@ -8,3 +8,6 @@ dlib/
 *.bin
 *.xml
 *.jpg
+FAR/
+FRR/
+detectFail/
