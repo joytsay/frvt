@@ -27,7 +27,7 @@ def main():
     unknownToKnown = 0
     Known = 0
     Unknown = 0
-    FR_data_dir = "11/validation"
+    FR_data_dir = "validation"
     enrollId = load_index_lists(FR_data_dir,"enroll.log")
     verifId = load_index_lists(FR_data_dir,"verif.log")
     matchScore = load_score_lists(FR_data_dir, "match.log")

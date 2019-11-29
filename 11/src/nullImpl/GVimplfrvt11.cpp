@@ -50,7 +50,7 @@ ReturnStatus
 NullImplFRVT11::initialize(const std::string &configDir)
 {
 	try { 
-        // imgCount = 0;
+        detectFailCount = 0;
         if(!input_image){
             input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
         }	
@@ -232,17 +232,17 @@ NullImplFRVT11::createTemplate(
                     int x_lm = rect.x + rect.width * normed_x;
                     int y_lm = rect.y + rect.height * normed_y;
                     // slog::info << "landmark("<< i_lm << "): (x,y)=(" << x_lm << "," << y_lm << ")"  << slog::endl;
-                    // cv::circle(frame, cv::Point(x_lm, y_lm), 5, cv::Scalar(0, 255, 255), -1);
+                    // cv::circle(frame, cv::Point(x_lm, y_lm), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 255, 255), -1);
                     // string lmText = to_string(i_lm); 
                     // cv::putText(frame, lmText, cv::Point(x_lm, y_lm), cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(0, 255, 0));
                 }
                 // --------------------------- Do Face and Landmark Detection for eye center----------------------------
                 int xleftEyeCenter = int (0.5 * (rect.x + rect.width * (normed_landmarks[2 * 0]) + rect.x + rect.width * (normed_landmarks[2 * 1])));
                 int yleftEyeCenter = int (0.5 * (rect.y + rect.height * (normed_landmarks[2 * 0 + 1]) + rect.y + rect.height * (normed_landmarks[2 * 1 + 1])));
-                cv::circle(frame, cv::Point(xleftEyeCenter, yleftEyeCenter), 5, cv::Scalar(255, 0, 0), -1);
+                cv::circle(frame, cv::Point(xleftEyeCenter, yleftEyeCenter), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(255, 0, 0), -1);
                 int xRightEyeCenter = int (0.5 * (rect.x + rect.width * (normed_landmarks[2 * 2]) + rect.x + rect.width * (normed_landmarks[2 * 3])));
                 int yRightEyeCenter = int (0.5 * (rect.y + rect.height * (normed_landmarks[2 * 2 + 1]) + rect.y + rect.height * (normed_landmarks[2 * 3 + 1])));
-                cv::circle(frame, cv::Point(xRightEyeCenter, yRightEyeCenter), 5, cv::Scalar(0, 0, 255), -1);
+                cv::circle(frame, cv::Point(xRightEyeCenter, yRightEyeCenter), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 0, 255), -1);
                 // eyeCoordinates.clear();
                 // eyeCoordinates.shrink_to_fit();
                 eyeCoordinates.push_back(EyePair(true, true, xRightEyeCenter, yRightEyeCenter, xleftEyeCenter, yleftEyeCenter));
@@ -277,9 +277,9 @@ NullImplFRVT11::createTemplate(
                 parts[4].y() = rect.y + rect.height * (normed_landmarks[2 * 5 + 1]);
 // std::cout<<"12"<<endl;
                 for (int k = 0; k < 5; k++) {
-                    cv::circle(frame, cv::Point(parts[k].x(),  parts[k].y()), 5, cv::Scalar(0, 255, 255), -1);
+                    cv::circle(frame, cv::Point(parts[k].x(),  parts[k].y()), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 255, 255), -1);
                     string lmText = to_string(k); 
-                    cv::putText(frame, lmText, cv::Point(parts[k].x(),  parts[k].y()), cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(0, 255, 0));
+                    // cv::putText(frame, lmText, cv::Point(parts[k].x(),  parts[k].y()), cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(0, 255, 0));
                 }
                 cv::imshow("Detection results", frame);
                 cv::waitKey(100);
@@ -360,10 +360,13 @@ NullImplFRVT11::createTemplate(
                 // << "[" << FR_emb[0] << ", " << FR_emb[1] << ", " << FR_emb[127] << ", " << FR_emb[510] << ", " << FR_emb[511] << "] " << slog::endl;
             } //detected faces vector array
 // std::cout<<"14.5"<<endl;
-            // if(prev_detection_results.size() == 0){ //for no FD found give false eyes detected bool and zero coordinates
-            //     eyeCoordinates.push_back(EyePair(false, false, 0, 0, 0, 0));
-            //     return ReturnStatus(ReturnCode::FaceDetectionError);
-            // }
+            if(prev_detection_results.size() == 0){ //for no FD found give false eyes detected bool and zero coordinates
+                eyeCoordinates.push_back(EyePair(false, false, 0, 0, 0, 0));
+                std::string detectFailFileName = "detectFail/" + to_*.xmlstring(detectFailCount) + ".jpg";
+                detectFailCount ++;
+                cv::imwrite(detectFailFileName, frame);
+                // return ReturnStatus(ReturnCode::FaceDetectionError);
+            }
         } //faces vector size array
         // --------------------------- Assign 512-D embedded features vector -----------------------------------
         //std::vector<float> fv = {1.0, 2.0, 8.88, 765.88989};

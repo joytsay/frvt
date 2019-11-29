@@ -1,5 +1,7 @@
 echo "[MAKE] ./config folder.."
 mkdir config
+echo "[MAKE] ./detectFail folder.."
+mkdir detectFail
 echo "[DELETE] ./build files.."
 rm -rf ./build/*
 echo "[DELETE] ./src/nullImpl/build files.."

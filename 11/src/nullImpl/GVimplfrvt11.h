@@ -120,6 +120,7 @@ private:
     float FR_emb[512];
     float gender[2];
     float age[7];
+    int detectFailCount;
     // int imgCount;
 	// std::vector<std::string> Device_List;
 	// std::string Plugin_Device;
