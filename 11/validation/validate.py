@@ -22,13 +22,34 @@ def load_score_lists(data_dir,file_name):
     return score
         
 def main():
-    # fileNameSets = ["enroll","verif","match"]
+    FRconfidence = 0.73
+    knownToUnknown = 0
+    unknownToKnown = 0
+    Known = 0
+    Unknown = 0
     FR_data_dir = "11/validation"
     enrollId = load_index_lists(FR_data_dir,"enroll.log")
     verifId = load_index_lists(FR_data_dir,"verif.log")
     matchScore = load_score_lists(FR_data_dir, "match.log")
-    if
-    print("[SUCCESS]")
+    for i, score in enumerate(matchScore):
+        if float(score) >= FRconfidence:
+            if enrollId[i] == verifId[i]:
+                Known += 1
+            else:
+                unknownToKnown += 1
+        else:
+            if enrollId[i] != verifId[i]:
+                Unknown += 1
+            else:
+                knownToUnknown += 1
+    print("\n[SUCCESS] NIST frvt validation for confidence: ",FRconfidence,
+    "\nAll count: ", len(matchScore),
+    "\nKnown: ", Known, 
+    "\nUnknown: ", Unknown,
+    "\nknownToUnknown: ", knownToUnknown, 
+    "\nunknownToKnown", unknownToKnown,
+    "\nFAR: ", unknownToKnown/len(matchScore)*100,
+    "%\nFRR: ", knownToUnknown/len(matchScore)*100,"%\n")
      
 if __name__ == "__main__":
     main()              
