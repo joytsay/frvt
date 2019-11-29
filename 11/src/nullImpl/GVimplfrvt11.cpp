@@ -362,7 +362,7 @@ NullImplFRVT11::createTemplate(
 // std::cout<<"14.5"<<endl;
             if(prev_detection_results.size() == 0){ //for no FD found give false eyes detected bool and zero coordinates
                 eyeCoordinates.push_back(EyePair(false, false, 0, 0, 0, 0));
-                std::string detectFailFileName = "detectFail/" + to_*.xmlstring(detectFailCount) + ".jpg";
+                std::string detectFailFileName = "detectFail/" + to_string(detectFailCount) + ".jpg";
                 detectFailCount ++;
                 cv::imwrite(detectFailFileName, frame);
                 // return ReturnStatus(ReturnCode::FaceDetectionError);
