@@ -22,12 +22,16 @@ def load_score_lists(data_dir,file_name):
     return score
         
 def main():
-    FRconfidence = 0.73
+    try:
+        mode=int(input('Give FR confidence threshold: '))
+    except ValueError:
+        print ("Not a int number")
+    FRconfidence = float(mode*0.01)
     knownToUnknown = 0
     unknownToKnown = 0
     Known = 0
     Unknown = 0
-    FR_data_dir = "validation"
+    FR_data_dir = "11/validation"
     enrollId = load_index_lists(FR_data_dir,"enroll.log")
     verifId = load_index_lists(FR_data_dir,"verif.log")
     matchScore = load_score_lists(FR_data_dir, "match.log")
