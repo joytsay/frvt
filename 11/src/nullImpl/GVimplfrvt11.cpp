@@ -212,7 +212,22 @@ NullImplFRVT11::createTemplate(
             facialLandmarksDetector->submitRequest();
 // std::cout<<"10"<<endl;
             // For every detected face
+            int maxFaceId = 0;
+            int maxRectArea = 0;
+            if(prev_detection_results.size() > 1){
+                for (size_t j = 0; j < prev_detection_results.size(); j++) {
+                    auto& result = prev_detection_results[j];
+                    cv::Rect rect = result.location & cv::Rect(0, 0, frame.cols, frame.rows);
+                    if(rect.width * rect.height >  maxRectArea){
+                        maxRectArea = rect.width * rect.height;
+                        maxFaceId = j;
+                    }
+                }
+                slog::info << "maxFace: " << maxFaceId << slog::endl;
+            }
+
             for (size_t j = 0; j < prev_detection_results.size(); j++) {
+                if(j != maxFaceId) continue;
                 auto& result = prev_detection_results[j];
                 cv::Rect rect = result.location & cv::Rect(0, 0, frame.cols, frame.rows);
                 Face::Ptr face;
