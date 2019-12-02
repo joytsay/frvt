@@ -55,7 +55,6 @@
 #define FR_EMBEDDING_SIZE 512
 
 
-
 /*
  * Declare the implementation class of the FRVT 1:1 Interface
  */
@@ -124,6 +123,10 @@ private:
     // int imgCount;
 	// std::vector<std::string> Device_List;
 	// std::string Plugin_Device;
+    int m_JitterCount;
+    float jitterFR_emb[512];
+    std::vector<dlib::matrix<dlib::rgb_pixel>> jitter_image(const dlib::matrix<dlib::rgb_pixel>& img, int height, int width);
+    std::vector <dlib::matrix<dlib::rgb_pixel>> crops;
 };
 }
 
