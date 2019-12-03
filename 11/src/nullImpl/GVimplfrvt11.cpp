@@ -54,7 +54,7 @@ NullImplFRVT11::initialize(const std::string &configDir)
 {
 	try { 
         detectFailCount = 0;
-        m_JitterCount = 100;
+        m_JitterCount = FR_JITTER_COUNT;
         if(!input_image){
             input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
         }	
@@ -63,7 +63,7 @@ NullImplFRVT11::initialize(const std::string &configDir)
         deviceName = "CPU";
         // slog::info << "configDir: " << configDir << " deviceName: " << deviceName 
                     // << "InferenceEngine: " << InferenceEngine::GetInferenceEngineVersion() << slog::endl;
-        std::string FDxmlFileName = configDir + "/yufacedetectnet-open-v1.xml";
+        std::string FDxmlFileName = configDir + "/face-detection-retail-0004.xml";
         // slog::info << "FDxmlFileName: " << FDxmlFileName << slog::endl;
         std::string LMxmlFileName = configDir + "/facial-landmarks-35-adas-0001.xml";
         // slog::info << "LMxmlFileName: " << LMxmlFileName << slog::endl;
@@ -178,6 +178,7 @@ NullImplFRVT11::createTemplate(
             std::list<Face::Ptr> facesAttributes;
             size_t id = 0;
             cv::Mat frame = cv::Mat(faces[i].height, faces[i].width, CV_8UC3);
+            cv::Mat showframe;
             // ------------------------------Visualizing results------------------------------------------------
             Visualizer::Ptr visualizer;
             visualizer = std::make_shared<Visualizer>(cv::Size(faces[i].width, faces[i].height ));
@@ -186,9 +187,10 @@ NullImplFRVT11::createTemplate(
             slog::info << "frvt imput image height: " << faces[i].height << ", width: " << faces[i].width << ", size: " << faces[i].size() << slog::endl;
             std::memcpy(frame.data, faces[i].data.get(), faces[i].size() );  
             cv::cvtColor(frame,frame, cv::COLOR_BGR2RGB);
-            cv::imshow("Origin image", frame);
-            cv::waitKey(100);
-            cv::destroyAllWindows(); 
+            frame.copyTo(showframe);
+            // cv::imshow("Origin image", frame);
+            // cv::waitKey(300);
+            // cv::destroyAllWindows(); 
             // Detecting all faces on the frame
             faceDetector->enqueue(frame);
         faceDetector->submitRequest();
@@ -240,17 +242,17 @@ NullImplFRVT11::createTemplate(
                     int x_lm = rect.x + rect.width * normed_x;
                     int y_lm = rect.y + rect.height * normed_y;
                     // slog::info << "landmark("<< i_lm << "): (x,y)=(" << x_lm << "," << y_lm << ")"  << slog::endl;
-                    // cv::circle(frame, cv::Point(x_lm, y_lm), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 255, 255), -1);
+                    // cv::circle(showframe, cv::Point(x_lm, y_lm), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 255, 255), -1);
                     // string lmText = to_string(i_lm); 
-                    // cv::putText(frame, lmText, cv::Point(x_lm, y_lm), cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(0, 255, 0));
+                    // cv::putText(showframe, lmText, cv::Point(x_lm, y_lm), cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(0, 255, 0));
                 }
                 // --------------------------- Do Face and Landmark Detection for eye center----------------------------
                 int xleftEyeCenter = int (0.5 * (rect.x + rect.width * (normed_landmarks[2 * 0]) + rect.x + rect.width * (normed_landmarks[2 * 1])));
                 int yleftEyeCenter = int (0.5 * (rect.y + rect.height * (normed_landmarks[2 * 0 + 1]) + rect.y + rect.height * (normed_landmarks[2 * 1 + 1])));
-                cv::circle(frame, cv::Point(xleftEyeCenter, yleftEyeCenter), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(255, 0, 0), -1);
+                cv::circle(showframe, cv::Point(xleftEyeCenter, yleftEyeCenter), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(255, 0, 0), -1);
                 int xRightEyeCenter = int (0.5 * (rect.x + rect.width * (normed_landmarks[2 * 2]) + rect.x + rect.width * (normed_landmarks[2 * 3])));
                 int yRightEyeCenter = int (0.5 * (rect.y + rect.height * (normed_landmarks[2 * 2 + 1]) + rect.y + rect.height * (normed_landmarks[2 * 3 + 1])));
-                cv::circle(frame, cv::Point(xRightEyeCenter, yRightEyeCenter), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 0, 255), -1);
+                cv::circle(showframe, cv::Point(xRightEyeCenter, yRightEyeCenter), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 0, 255), -1);
                 // eyeCoordinates.clear();
                 // eyeCoordinates.shrink_to_fit();
                 eyeCoordinates.push_back(EyePair(true, true, xRightEyeCenter, yRightEyeCenter, xleftEyeCenter, yleftEyeCenter));
@@ -258,7 +260,7 @@ NullImplFRVT11::createTemplate(
                 slog::info << "eyeCoordinatesLeftEye("<< i << "): (x,y)=(" << eyeCoordinates[i].xleft << "," << eyeCoordinates[i].yleft << ")"  << slog::endl;
                 slog::info << "eyeCoordinatesRightEye("<< i << "): (x,y)=(" << eyeCoordinates[i].xright << "," << eyeCoordinates[i].yright << ")"  << slog::endl;
                 // cv::imshow("Detection results", frame);
-                // cv::waitKey(0);
+                // cv::waitKey(300);
                 // cv::destroyAllWindows();
                 // ---------------------------------------------------------------------------------------------------
                 // // --------------------------- Do Face and Landmark Detection for eye center--------------------------
@@ -284,12 +286,12 @@ NullImplFRVT11::createTemplate(
                 parts[4].x() = rect.x + rect.width * (normed_landmarks[2 * 5]); 
                 parts[4].y() = rect.y + rect.height * (normed_landmarks[2 * 5 + 1]);
                 for (int k = 0; k < 5; k++) {
-                    cv::circle(frame, cv::Point(parts[k].x(),  parts[k].y()), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 255, 255), -1);
+                    cv::circle(showframe, cv::Point(parts[k].x(),  parts[k].y()), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 255, 255), -1);
                     string lmText = to_string(k); 
-                    // cv::putText(frame, lmText, cv::Point(parts[k].x(),  parts[k].y()), cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(0, 255, 0));
+                    cv::putText(showframe, lmText, cv::Point(parts[k].x(),  parts[k].y()), cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(0, 255, 0));
                 }
-                cv::imshow("Detection results", frame);
-                cv::waitKey(100);
+                cv::imshow("Detection results", showframe);
+                cv::waitKey(300);
                 cv::destroyAllWindows();
                 dlib::full_object_detection shape_local(known_det, parts);
                 dlib::cv_image<dlib::rgb_pixel> cv_imgFR(frame);
@@ -300,14 +302,27 @@ NullImplFRVT11::createTemplate(
 
                 std::vector<dlib::matrix<float, 0, 1>> SVM_descriptor;
                 std::vector<dlib::matrix<dlib::rgb_pixel>> SVM_distrub_color_crops;
-                SVM_distrub_color_crops = this->jitter_image(enroll_chip, FR_IMAGE_HEIGHT, FR_IMAGE_HEIGHT);
-                int cropsCount = m_JitterCount > 0 ? m_JitterCount : 1;
+                int cropsCount = 0;
+                
+                if(role == TemplateRole::Enrollment_11 || role == TemplateRole::Enrollment_1N){
+                    slog::info << "FR image TemplateRole Enrollment"<< slog::endl;
+                    SVM_distrub_color_crops = this->jitter_image(enroll_chip, FR_IMAGE_HEIGHT, FR_IMAGE_HEIGHT);
+                    cropsCount = m_JitterCount > 0 ? m_JitterCount : 1;
+                    
+                }else{
+                    slog::info << "FR image TemplateRole Verification"<< slog::endl;
+                    SVM_distrub_color_crops.push_back(enroll_chip);
+                    cropsCount = 1;
+                }
                 for (int i = 0; i < cropsCount; i++)
                 {
                     cv::Mat chipMat = dlib::toMat(SVM_distrub_color_crops[i]);
-                    cv::imshow("extract_image_chip", chipMat);
-                    cv::waitKey(50);
-                    cv::destroyAllWindows();
+                    if(i == cropsCount - 1){
+                        std::string jitterShowName = "LastChip(" + to_string(i) + ")";
+                        cv::imshow(jitterShowName, chipMat);
+                        cv::waitKey(300);
+                        cv::destroyAllWindows();
+                    }
                     // ---------------------------------------------------------------------------------------------------
 
                     // --------------------------Prepare FR input---------------------------------------------------------
@@ -474,7 +489,7 @@ std::vector<dlib::matrix<dlib::rgb_pixel>> NullImplFRVT11::jitter_image(const dl
 			cropper.set_randomly_flip(true);
 			cropper.set_max_object_size(0.99999);
 			cropper.set_background_crops_fraction(0);
-			cropper.set_min_object_size(0.97,0.97);
+			cropper.set_min_object_size(FR_IMAGE_HEIGHT,FR_IMAGE_HEIGHT);
 			cropper.set_translate_amount(0.02);
 			cropper.set_max_rotation_degrees(3);
 			std::vector<dlib::mmod_rect> raw_boxes(1), ignored_crop_boxes;

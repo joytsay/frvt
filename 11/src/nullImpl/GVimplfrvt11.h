@@ -53,6 +53,7 @@
 #define FR_IMAGE_HEIGHT 224
 #define FR_IMAGE_PADDING 25
 #define FR_EMBEDDING_SIZE 512
+#define FR_JITTER_COUNT 10
 
 
 /*

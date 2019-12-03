@@ -3,11 +3,11 @@ build/
 *.tar.gz
 bin/
 *.log
-lib/
-dlib/
 *.bin
 *.xml
 *.jpg
 FAR/
 FRR/
 detectFail/
+validation/
+libfrvt_11_*_???.so

@@ -18,6 +18,8 @@ echo "[DELETE] ./FRR files.."
 rm -rf ./FRR/*
 echo "[DELETE] ./lib files.."
 rm -rf ./lib/*
+echo "[DELETE] ./validation files.."
+rm -rf ./validation/*
 echo "[EXECUTE] ./scripts/build_null_impl.sh.."
 ./scripts/build_null_impl.sh
 echo "[EXECUTE] ./run_validate_11.sh.."
