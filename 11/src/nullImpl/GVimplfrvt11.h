@@ -22,6 +22,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <string>
+#include <mutex>
+#include <iostream>
+#include <ctime>    
 
 #include <inference_engine.hpp>
 
@@ -55,6 +58,10 @@
 #define FR_EMBEDDING_SIZE 512
 #define FR_JITTER_COUNT 10
 
+int detectFailCount = 0;
+int imgCount = 0;
+std::mutex mtx;
+std::mutex saveImgMtx;
 
 /*
  * Declare the implementation class of the FRVT 1:1 Interface
@@ -120,7 +127,7 @@ private:
     float FR_emb[512];
     float gender[2];
     float age[7];
-    int detectFailCount;
+    // int detectFailCount;
     // int imgCount;
 	// std::vector<std::string> Device_List;
 	// std::string Plugin_Device;

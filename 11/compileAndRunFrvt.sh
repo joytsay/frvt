@@ -16,6 +16,8 @@ echo "[DELETE] ./FAR files.."
 rm -rf ./FAR/*
 echo "[DELETE] ./FRR files.."
 rm -rf ./FRR/*
+echo "[DELETE] ./FDresults files.."
+rm -rf ./FDresults/*
 echo "[DELETE] ./lib files.."
 rm -rf ./lib/*
 echo "[DELETE] ./validation files.."
