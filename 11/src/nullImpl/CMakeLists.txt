@@ -31,7 +31,8 @@ file(GLOB face_detection_sources
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../lib)
 
 #For the shared library:
-set(lib_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/lib)
+#set(lib_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/lib)
+set(lib_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../lib)
 MESSAGE("[DEBUG] lib_dir{${lib_dir}}")
 find_library(cpu_extension NAMES cpu_extension PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(ie_inference_engine NAMES inference_engine PATHS ${lib_dir} NO_DEFAULT_PATH)
