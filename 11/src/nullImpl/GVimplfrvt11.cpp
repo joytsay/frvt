@@ -107,6 +107,11 @@ NullImplFRVT11::initialize(const std::string &configDir)
         // slog::info << "Loading device " << deviceName << slog::endl;
         // std::cout << ie.GetVersions(deviceName) << std::endl;
         ie.AddExtension(std::make_shared<InferenceEngine::Extensions::Cpu::CpuExtensions>(), deviceName);
+        ie.SetConfig({{ CONFIG_KEY(CPU_THREADS_NUM), "1" }}, deviceName);
+        ie.SetConfig({{ CONFIG_KEY(CPU_BIND_THREAD), CONFIG_VALUE(YES) }}, deviceName);
+        // for CPU execution, more throughput-oriented execution via streams
+        ie.SetConfig({{ CONFIG_KEY(CPU_THROUGHPUT_STREAMS), "1"}}, deviceName);
+
         bFaceDetectorIsLoaded = false;
         bFaceLandmarkIsLoaded = false;
 
@@ -165,7 +170,7 @@ NullImplFRVT11::createTemplate(
         std::vector<EyePair> &eyeCoordinates)
 {
     try { //---------------------------- Implement intel inference engine -------------------------------------
-        
+        // clock_t begin = clock();
         if(!bFaceDetectorIsLoaded){
             Load(*faceDetector).into(ie, deviceName, false);
             bFaceDetectorIsLoaded = true;
@@ -174,6 +179,10 @@ NullImplFRVT11::createTemplate(
             Load(*facialLandmarksDetector).into(ie, deviceName, false);
             bFaceLandmarkIsLoaded = true;
         }
+
+        // std::map<std::string, std::string> config = {{ CONFIG_KEY(CPU_THREADS_NUM), "1"},
+        // { CONFIG_KEY(CPU_THREADS_NUM), CONFIG_VALUE(NO)},
+        // { CONFIG_KEY(CPU_THROUGHPUT_STREAMS), "0"}};
 
         // -------------------------Load FR model to the plugin-------------------------------------------------
         if (exe_network == nullptr){
@@ -320,9 +329,9 @@ NullImplFRVT11::createTemplate(
                 // string detectFileName = "FDresults/face(" + to_string(now->tm_year + 1900) + "_"
                 // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
                 // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
-                string detectFileName = "FDresults/face(" + ProduceUUID() + ").jpg"; 
+                // string detectFileName = "FDresults/face(" + ProduceUUID() + ").jpg"; 
                 // imgCount++;
-                cv::imwrite(detectFileName, showframe);
+                // cv::imwrite(detectFileName, showframe);
                 saveImgMtx.unlock();
                 // cv::waitKey(300);
                 // cv::destroyAllWindows();
@@ -365,9 +374,9 @@ NullImplFRVT11::createTemplate(
                         // string chipFileName = "FDresults/chip(" + to_string(now->tm_year + 1900) + "_"
                         // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
                         // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
-                        string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
+                        // string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
                         // imgCount++;
-                        cv::imwrite(chipFileName, chipMat);
+                        // cv::imwrite(chipFileName, chipMat);
                         saveImgMtx.unlock();
                         // cv::waitKey(300);
                         // cv::destroyAllWindows();
@@ -375,9 +384,9 @@ NullImplFRVT11::createTemplate(
                     // ---------------------------------------------------------------------------------------------------
 
                     // --------------------------Prepare FR input---------------------------------------------------------
-                    if (image_size != chipMat.rows * chipMat.cols) {
-                        slog::info << "FR image_size didn`t match network_input_size"<< slog::endl;
-                    }
+                    // if (image_size != chipMat.rows * chipMat.cols) {
+                    //     slog::info << "FR image_size didn`t match network_input_size"<< slog::endl;
+                    // }
                     // slog::info << "dims[0]: "<< input->dims()[0] << ", dims[1]: "<< input->dims()[1] << ", dims[2]: "<< input->dims()[2]
                     // << ", image_size: " << image_size << ", num_channels:" << num_channels << slog::endl;
                     // std::cout<<"13"<<"chipMat.rows: "<<chipMat.rows<<", chipMat.cols: "<<chipMat.cols<<endl;
@@ -415,7 +424,7 @@ NullImplFRVT11::createTemplate(
                             pOt = age;
                             break;
                         default:
-                            slog::info << "FR output_name error"<< slog::endl;
+                            // slog::info << "FR output_name error"<< slog::endl;
                         }
                         const auto output_data = output_blob->buffer().as<InferenceEngine::PrecisionTrait<InferenceEngine::Precision::FP32>::value_type*>();
                         /** Validating -nt value **/
@@ -457,9 +466,9 @@ NullImplFRVT11::createTemplate(
                 // string detectFailFileName = "detectFail/face(" + to_string(now->tm_year + 1900) + "_"
                 // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
                 // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
-                string detectFailFileName = "detectFail/face(" + ProduceUUID() + ").jpg"; 
+                // string detectFailFileName = "detectFail/face(" + ProduceUUID() + ").jpg"; 
                 // detectFailCount++;
-                cv::imwrite(detectFailFileName, frame);
+                // cv::imwrite(detectFailFileName, frame);
                 saveImgMtx.unlock();
                 // detectFailCount ++;
                 fv.resize(FR_EMBEDDING_SIZE);
@@ -482,8 +491,10 @@ NullImplFRVT11::createTemplate(
             // slog::info << "FR features size: "<<fv.size()<< " fv[0,1,127,510,511]: " 
             // << "[" << fv[0] << ", " << fv[1] << ", " << fv[127] << ", " << fv[510] << ", " << fv[511] << "] " << slog::endl;
             mtx.unlock();
-        } //faces vector size array
-
+        } //faces vect`or size array
+        // clock_t end = clock();
+        // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+        // slog::info << "FR createTemplate executeㄥtime: "<<time_spent<< " sec spent" << slog::endl;
     } catch (const std::exception & ex) {
         std::cerr << ex.what() << std::endl;
     }
