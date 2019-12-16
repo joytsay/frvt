@@ -19,30 +19,6 @@ using namespace FRVT_11;
 
 InferenceEngine::ExecutableNetwork::Ptr NullImplFRVT11::exe_network = nullptr;
 
-std::vector<dlib::matrix<float, 0, 1>> array_to_dlib_1D_matrix(int face_count, float* in_array, int dim_size) {
-	
-	std::vector<dlib::matrix<float, 0, 1>> out_matrix(face_count);
-	for (int i = 0; i < face_count; i++) {
-		out_matrix[i].set_size(dim_size);
-		for (int j = 0; j < dim_size; j++)
-			out_matrix[i](j) = in_array[i*dim_size + j];
-	}
-	return out_matrix;
-}
-
-std::string ProduceUUID(){
-    srand(time(NULL));
-    char strUuid[128];
-    sprintf(strUuid, "%x%x-%x-%x-%x-%x%x%x", 
-    rand(), rand(),                 // Generates a 64-bit Hex number
-    rand(),                         // Generates a 32-bit Hex number
-    ((rand() & 0x0fff) | 0x4000),   // Generates a 32-bit Hex number of the form 4xxx (4 indicates the UUID version)
-    rand() % 0x3fff + 0x8000,       // Generates a 32-bit Hex number in the range [0x8000, 0xbfff]
-    rand(), rand(), rand());        // Generates a 96-bit Hex number
-    std::string outputString = strUuid;
-    return outputString;
-}
-
 NullImplFRVT11::NullImplFRVT11() {}
 
 NullImplFRVT11::~NullImplFRVT11() {
@@ -195,13 +171,15 @@ NullImplFRVT11::createTemplate(
         size_t num_channels = input_shape[1];
         size_t image_size = input_shape[2] * input_shape[3];
         auto data = input->buffer().as<InferenceEngine::PrecisionTrait<InferenceEngine::Precision::FP32>::value_type*>();
-        
+        // slog::info << "faces.size(): " << faces.size() << slog::endl;
+
         for (unsigned int i=0; i<faces.size(); i++) {
             mtx.lock();
             // imgCount++;
             // ----------------------------------------------------------------------------------------------------
             std::list<Face::Ptr> facesAttributes;
             size_t id = 0;
+            saveImgMtx.lock();
             cv::Mat frame = cv::Mat(faces[i].height, faces[i].width, CV_8UC3);
             cv::Mat showframe;
             // ------------------------------Visualizing results------------------------------------------------
@@ -213,6 +191,9 @@ NullImplFRVT11::createTemplate(
             std::memcpy(frame.data, faces[i].data.get(), faces[i].size() );  
             cv::cvtColor(frame,frame, cv::COLOR_BGR2RGB);
             frame.copyTo(showframe);
+            // string chipFileName = "FDresults/OriImg(" + ProduceUUID() + ").jpg";
+            // cv::imwrite(chipFileName, frame);
+            saveImgMtx.unlock();
             // cv::imshow("Origin image", frame);
             // cv::waitKey(300);
             // cv::destroyAllWindows(); 
@@ -232,7 +213,7 @@ NullImplFRVT11::createTemplate(
             }
             // Running Facial Landmarks Estimation networks simultaneously
             facialLandmarksDetector->submitRequest();
-            // For every detected face
+            //For every detected face
             int maxFaceId = 0;
             int maxRectArea = 0;
             if(prev_detection_results.size() > 1){
@@ -249,6 +230,7 @@ NullImplFRVT11::createTemplate(
 
             for (size_t j = 0; j < prev_detection_results.size(); j++) {
                 if(j != maxFaceId) continue;
+                // if(j > 0 ) break;
                 auto& result = prev_detection_results[j];
                 cv::Rect rect = result.location & cv::Rect(0, 0, frame.cols, frame.rows);
                 Face::Ptr face;
@@ -321,7 +303,7 @@ NullImplFRVT11::createTemplate(
                 // These two calls...
                 cv::rectangle(showframe, pt1, pt2, cv::Scalar(0, 0, 255));
                 // cv::imshow("Detection results", showframe);
-                saveImgMtx.lock();
+                // saveImgMtx.lock();
                 // std::time_t t = std::time(0);   // get time now
                 // std::tm* now = std::localtime(&t);
                 // srand((unsigned) time(&t));
@@ -329,10 +311,9 @@ NullImplFRVT11::createTemplate(
                 // string detectFileName = "FDresults/face(" + to_string(now->tm_year + 1900) + "_"
                 // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
                 // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
-                // string detectFileName = "FDresults/face(" + ProduceUUID() + ").jpg"; 
-                // imgCount++;
+                // string detectFileName = "FDresults/face(" + ProduceUUID() + ").jpg"; ;
                 // cv::imwrite(detectFileName, showframe);
-                saveImgMtx.unlock();
+                // saveImgMtx.unlock();
                 // cv::waitKey(300);
                 // cv::destroyAllWindows();
                 dlib::full_object_detection shape_local(known_det, parts);
@@ -340,17 +321,28 @@ NullImplFRVT11::createTemplate(
                 dlib::matrix<dlib::rgb_pixel> imgFR;
                 assign_image(imgFR, cv_imgFR);
                 dlib::extract_image_chip(imgFR, dlib::get_face_chip_details(shape_local, FR_IMAGE_HEIGHT, FR_IMAGE_PADDING*0.01), enroll_chip);
-
+                cv::Mat enrollChipMat = dlib::toMat(enroll_chip);
+                // saveImgMtx.lock();
+                // std::time_t t = std::time(0);   // get time now
+                // std::tm* now = std::localtime(&t);
+                // srand((unsigned) time(&t));
+                // int rndNumber = rand() % 10000;
+                // string chipFileName = "FDresults/chip(" + to_string(now->tm_year + 1900) + "_"
+                // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
+                // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
+                // string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
+                // cv::imwrite(chipFileName, enrollChipMat);
+                // saveImgMtx.unlock();
+                // cv::waitKey(300);
+                // cv::destroyAllWindows();
 
                 std::vector<dlib::matrix<float, 0, 1>> SVM_descriptor;
                 std::vector<dlib::matrix<dlib::rgb_pixel>> SVM_distrub_color_crops;
-                int cropsCount = 0;
-                
+                int cropsCount = m_JitterCount;
                 if(role == TemplateRole::Enrollment_11 || role == TemplateRole::Enrollment_1N){
                     // slog::info << "FR image TemplateRole Enrollment"<< slog::endl;
                     if(m_JitterCount > 0){
                         SVM_distrub_color_crops = this->jitter_image(enroll_chip, FR_IMAGE_HEIGHT, FR_IMAGE_HEIGHT);
-                        cropsCount = m_JitterCount;
                     }else{
                         SVM_distrub_color_crops.push_back(enroll_chip);
                         cropsCount = 1;
@@ -363,24 +355,23 @@ NullImplFRVT11::createTemplate(
                 for (int i = 0; i < cropsCount; i++)
                 {
                     cv::Mat chipMat = dlib::toMat(SVM_distrub_color_crops[i]);
-                    if(i == cropsCount - 1){
-                        std::string jitterShowName = "LastChip(" + to_string(i) + ")";
-                        // cv::imshow(jitterShowName, chipMat);
-                        saveImgMtx.lock();
-                        // std::time_t t = std::time(0);   // get time now
-                        // std::tm* now = std::localtime(&t);
-                        // srand((unsigned) time(&t));
-                        // int rndNumber = rand() % 10000;
-                        // string chipFileName = "FDresults/chip(" + to_string(now->tm_year + 1900) + "_"
-                        // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
-                        // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
-                        // string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
-                        // imgCount++;
-                        // cv::imwrite(chipFileName, chipMat);
-                        saveImgMtx.unlock();
-                        // cv::waitKey(300);
-                        // cv::destroyAllWindows();
-                    }
+                    // if(i == cropsCount - 1){
+                    //     std::string jitterShowName = "LastChip(" + to_string(i) + ")";
+                    //     cv::imshow(jitterShowName, chipMat);
+                    //     saveImgMtx.lock();
+                    //     // std::time_t t = std::time(0);   // get time now
+                    //     // std::tm* now = std::localtime(&t);
+                    //     // srand((unsigned) time(&t));
+                    //     // int rndNumber = rand() % 10000;
+                    //     // string chipFileName = "FDresults/chip(" + to_string(now->tm_year + 1900) + "_"
+                    //     // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
+                    //     // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
+                    //     string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
+                    //     cv::imwrite(chipFileName, chipMat);
+                    //     saveImgMtx.unlock();
+                    //     cv::waitKey(300);
+                    //     cv::destroyAllWindows();
+                    // }
                     // ---------------------------------------------------------------------------------------------------
 
                     // --------------------------Prepare FR input---------------------------------------------------------
@@ -424,7 +415,8 @@ NullImplFRVT11::createTemplate(
                             pOt = age;
                             break;
                         default:
-                            // slog::info << "FR output_name error"<< slog::endl;
+                            std::string FRmsg = "FR output_name error";
+                            // slog::info << FRmsg << slog::endl;
                         }
                         const auto output_data = output_blob->buffer().as<InferenceEngine::PrecisionTrait<InferenceEngine::Precision::FP32>::value_type*>();
                         /** Validating -nt value **/
@@ -458,7 +450,7 @@ NullImplFRVT11::createTemplate(
             std::vector<float> fv;
             if(prev_detection_results.size() == 0){ //for no FD found give false eyes detected bool and zero coordinates
                 eyeCoordinates.push_back(EyePair(false, false, 0, 0, 0, 0));
-                saveImgMtx.lock();
+                // saveImgMtx.lock();
                 // std::time_t t = std::time(0);   // get time now
                 // std::tm* now = std::localtime(&t);
                 // srand((unsigned) time(&t));
@@ -467,9 +459,8 @@ NullImplFRVT11::createTemplate(
                 // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
                 // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
                 // string detectFailFileName = "detectFail/face(" + ProduceUUID() + ").jpg"; 
-                // detectFailCount++;
                 // cv::imwrite(detectFailFileName, frame);
-                saveImgMtx.unlock();
+                // saveImgMtx.unlock();
                 // detectFailCount ++;
                 fv.resize(FR_EMBEDDING_SIZE);
                 for(int emb = 0; emb < FR_EMBEDDING_SIZE; emb++){
@@ -597,5 +588,25 @@ std::vector<dlib::matrix<dlib::rgb_pixel>> NullImplFRVT11::jitter_image(const dl
 	return crops;
 }
 
+std::vector<dlib::matrix<float, 0, 1>> NullImplFRVT11::array_to_dlib_1D_matrix(int face_count, float* in_array, int dim_size) {
+	std::vector<dlib::matrix<float, 0, 1>> out_matrix(face_count);
+	for (int i = 0; i < face_count; i++) {
+		out_matrix[i].set_size(dim_size);
+		for (int j = 0; j < dim_size; j++)
+			out_matrix[i](j) = in_array[i*dim_size + j];
+	}
+	return out_matrix;
+}
 
-
+std::string NullImplFRVT11::ProduceUUID(){
+    srand(time(NULL));
+    char strUuid[128];
+    sprintf(strUuid, "%x%x-%x-%x-%x-%x%x%x", 
+    rand(), rand(),                 // Generates a 64-bit Hex number
+    rand(),                         // Generates a 32-bit Hex number
+    ((rand() & 0x0fff) | 0x4000),   // Generates a 32-bit Hex number of the form 4xxx (4 indicates the UUID version)
+    rand() % 0x3fff + 0x8000,       // Generates a 32-bit Hex number in the range [0x8000, 0xbfff]
+    rand(), rand(), rand());        // Generates a 96-bit Hex number
+    std::string outputString = strUuid;
+    return outputString;
+}

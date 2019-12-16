@@ -135,6 +135,8 @@ private:
     float jitterFR_emb[512];
     std::vector<dlib::matrix<dlib::rgb_pixel>> jitter_image(const dlib::matrix<dlib::rgb_pixel>& img, int height, int width);
     std::vector <dlib::matrix<dlib::rgb_pixel>> crops;
+    std::vector<dlib::matrix<float, 0, 1>> array_to_dlib_1D_matrix(int face_count, float* in_array, int dim_size);
+    std::string ProduceUUID();
 };
 }
 

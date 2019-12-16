@@ -13,3 +13,4 @@ detectFail/
 validation/
 libfrvt_11_*_???.so
 *.gpg
+*_.txt
