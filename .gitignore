@@ -14,3 +14,5 @@ validation/
 libfrvt_11_*_???.so
 *.gpg
 *_.txt
+11/paticipantFingerprint.txt
+11/validateScore.txt
