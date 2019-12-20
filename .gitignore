@@ -4,7 +4,6 @@ build/
 bin/
 *.log
 *.bin
-*.xml
 *.jpg
 *.ppm
 FAR/
@@ -16,3 +15,6 @@ libfrvt_11_*_???.so
 *_.txt
 11/paticipantFingerprint.txt
 11/validateScore.txt
+11/config/#38_asian_multi_task_10.xml
+11/config/face-detection-retail-0004.xml
+11/config/facial-landmarks-35-adas-0001.xml

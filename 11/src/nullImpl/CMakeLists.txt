@@ -47,5 +47,5 @@ MESSAGE("[DEBUG] Libraries: cpu_extension{${cpu_extension}} ie_inference_engine{
 
 # Build the shared libraries:
 add_library (frvt_11_geovision_000 SHARED ${face_detection_sources})
-target_link_libraries(frvt_11_geovision_000 ${cpu_extension} ${inference_engine} ${opencv_highgui} ${ie_tbb} ${opencv_core} ${opencv_imgcodecs} ${opencv_imgproc} ${opencv_videoio})
+target_link_libraries(frvt_11_geovision_000 ${cpu_extension} ${ie_inference_engine} ${opencv_highgui} ${ie_tbb} ${opencv_core} ${opencv_imgcodecs} ${opencv_imgproc} ${opencv_videoio})
 
