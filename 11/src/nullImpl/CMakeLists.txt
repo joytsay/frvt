@@ -41,11 +41,17 @@ find_library(ie_tbb NAMES tbb PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(opencv_core NAMES opencv_core PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(opencv_imgcodecs NAMES opencv_imgcodecs PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(opencv_imgproc NAMES opencv_imgproc PATHS ${lib_dir} NO_DEFAULT_PATH)
-#find_library(opencv_videoio NAMES opencv_video PATHS ${lib_dir} NO_DEFAULT_PATH)
+find_library(opencv_videoio NAMES opencv_videoio PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(dlib NAMES dlib PATHS ${lib_dir} NO_DEFAULT_PATH)
-MESSAGE("[DEBUG] Libraries: cpu_extension{${cpu_extension}} ie_inference_engine{${ie_inference_engine}} opencv_highgui{${opencv_highgui}} ie_tbb{${ie_tbb}} opencv_core{${opencv_core}} opencv_imgcodecs{${opencv_imgcodecs}} opencv_imgproc{${opencv_imgproc}} dlib{${dlib}}") #opencv_videoio{${opencv_videoio}} 
+find_library(MKLDNNPlugin NAMES MKLDNNPlugin PATHS ${lib_dir} NO_DEFAULT_PATH)
+find_library(mkl_tiny_tbb NAMES mkl_tiny_tbb PATHS ${lib_dir} NO_DEFAULT_PATH)
+
+MESSAGE("[DEBUG] Libraries: cpu_extension{${cpu_extension}} ie_inference_engine{${ie_inference_engine}} 
+opencv_highgui{${opencv_highgui}} ie_tbb{${ie_tbb}} opencv_core{${opencv_core}} opencv_imgcodecs{${opencv_imgcodecs}}
+ opencv_imgproc{${opencv_imgproc}} opencv_videoio{${opencv_videoio}} dlib{${dlib}} MKLDNNPlugin{${MKLDNNPlugin}} 
+ mkl_tiny_tbb{${mkl_tiny_tbb}}") 
 
 # Build the shared libraries:
 add_library (frvt_11_geo_000 SHARED ${face_detection_sources})
-target_link_libraries(frvt_11_geo_000 ${cpu_extension} ${ie_inference_engine} ${opencv_highgui} ${ie_tbb} ${opencv_core} ${opencv_imgcodecs} ${opencv_imgproc} ${opencv_videoio})
+target_link_libraries(frvt_11_geo_000 ${cpu_extension} ${ie_inference_engine} ${opencv_highgui} ${ie_tbb} ${opencv_core} ${opencv_imgcodecs} ${opencv_imgproc} ${dlib} ${MKLDNNPlugin})
 
