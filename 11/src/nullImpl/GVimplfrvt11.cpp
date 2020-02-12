@@ -42,8 +42,10 @@ ReturnStatus
 NullImplFRVT11::initialize(const std::string &configDir)
 {
 	try { 
+        tbb::global_control(tbb::global_control::max_allowed_parallelism, 1);
         // imgCount = 0;
         // detectFailCount = 0;
+        //tbbControl = new tbb::global_control(tbb::global_control::max_allowed_parallelism, 1);
         m_JitterCount = FR_JITTER_COUNT;
         if(!input_image){
             input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
@@ -83,10 +85,10 @@ NullImplFRVT11::initialize(const std::string &configDir)
         // slog::info << "Loading device " << deviceName << slog::endl;
         // std::cout << ie.GetVersions(deviceName) << std::endl;
         ie.AddExtension(std::make_shared<InferenceEngine::Extensions::Cpu::CpuExtensions>(), deviceName);
-        ie.SetConfig({{ CONFIG_KEY(CPU_THREADS_NUM), "1" }}, deviceName);
-        ie.SetConfig({{ CONFIG_KEY(CPU_BIND_THREAD), CONFIG_VALUE(YES) }}, deviceName);
+        //ie.SetConfig({{ CONFIG_KEY(CPU_THREADS_NUM), "1" }}, deviceName); //-nthreads
+        //ie.SetConfig({{ CONFIG_KEY(CPU_BIND_THREAD), CONFIG_VALUE(YES) }}, deviceName);
         // for CPU execution, more throughput-oriented execution via streams
-        ie.SetConfig({{ CONFIG_KEY(CPU_THROUGHPUT_STREAMS), "1"}}, deviceName);
+        //ie.SetConfig({{ CONFIG_KEY(CPU_THROUGHPUT_STREAMS), "1"}}, deviceName); //-nstreams
 
         bFaceDetectorIsLoaded = false;
         bFaceLandmarkIsLoaded = false;
@@ -147,6 +149,7 @@ NullImplFRVT11::createTemplate(
 {
     try { //---------------------------- Implement intel inference engine -------------------------------------
         // clock_t begin = clock();
+        tbb::global_control(tbb::global_control::max_allowed_parallelism, 1);
         if(!bFaceDetectorIsLoaded){
             Load(*faceDetector).into(ie, deviceName, false);
             bFaceDetectorIsLoaded = true;

@@ -20,6 +20,8 @@ file(GLOB face_detection_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/cpp/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/*.cpp
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/tbb/*.h
+    #${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/tbb/*.cpp
     #${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/image_processing/*.h
     #${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/image_processing/*.cpp
     #${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/image_transforms/*.h

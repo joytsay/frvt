@@ -35,9 +35,10 @@
 #include "detectors.hpp"
 #include "face.hpp"
 #include "visualizer.hpp"
-
 #include <ie_iextension.h>
 #include <ext_list.hpp>
+#define TBB_PREVIEW_GLOBAL_CONTROL 1
+#include <tbb/global_control.h>
 
 #include <dlib/image_processing/render_face_detections.h>
 #include <dlib/image_processing.h>
@@ -57,6 +58,7 @@
 #define FR_IMAGE_PADDING 25
 #define FR_EMBEDDING_SIZE 512
 #define FR_JITTER_COUNT 10
+
 
 int detectFailCount = 0;
 int imgCount = 0;
@@ -99,6 +101,7 @@ private:
     //unsigned char* input_image = NULL;
     // std::string input_name;
     // std::string output_name;
+    //tbb::global_control *tbbControl = NULL;
     std::string deviceName;
     FaceDetection *faceDetector = NULL;
     FacialLandmarksDetection *facialLandmarksDetector = NULL;
