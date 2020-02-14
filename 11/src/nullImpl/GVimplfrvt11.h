@@ -26,20 +26,21 @@
 #include <iostream>
 #include <ctime>    
 
-#include <inference_engine.hpp>
+// #include <inference_engine.hpp>
 
-#include <samples/ocv_common.hpp>
-#include <samples/slog.hpp>
+//  #include <samples/ocv_common.hpp>
+//#include <samples/slog.hpp>
 
 //#include "interactive_face_detection.hpp"
-#include "detectors.hpp"
-#include "face.hpp"
-#include "visualizer.hpp"
-#include <ie_iextension.h>
-#include <ext_list.hpp>
-#define TBB_PREVIEW_GLOBAL_CONTROL 1
-#include <tbb/global_control.h>
-
+// #include "detectors.hpp"
+// #include "face.hpp"
+// #include "visualizer.hpp"
+// #include <ie_iextension.h>
+// #include <ext_list.hpp>
+// #define TBB_PREVIEW_GLOBAL_CONTROL 1
+// #include <tbb/global_control.h>
+#include <opencv2/opencv.hpp>
+#define DLIB_JPEG_SUPPORT
 #include <dlib/image_processing/render_face_detections.h>
 #include <dlib/image_processing.h>
 #include <dlib/geometry/rectangle.h>
@@ -53,6 +54,8 @@
 #include <dlib/opencv.h>
 #include <dlib/image_processing/full_object_detection.h>
 #include <dlib/image_transforms.h>
+#include <dlib/image_processing/frontal_face_detector.h>
+#include <dlib/image_saver/save_jpeg.h>
 
 #define FR_IMAGE_HEIGHT 224
 #define FR_IMAGE_PADDING 25
@@ -102,25 +105,29 @@ private:
     // std::string input_name;
     // std::string output_name;
     //tbb::global_control *tbbControl = NULL;
-    std::string deviceName;
-    FaceDetection *faceDetector = NULL;
-    FacialLandmarksDetection *facialLandmarksDetector = NULL;
-    // --------------------------- 1. Load inference engine instance -------------------------------------
-    InferenceEngine::Core ie;
-    bool bFaceDetectorIsLoaded;
-    bool bFaceLandmarkIsLoaded;
-    // -----------------------------------------------------------------------------------------------------
-    // InferenceEngine::ExecutableNetwork executable_network;
-    InferenceEngine::InferRequest infer_request;
+    // std::string deviceName;
+    // FaceDetection *faceDetector = NULL;
+    // FacialLandmarksDetection *facialLandmarksDetector = NULL;
+    // // --------------------------- 1. Load inference engine instance -------------------------------------
+    // InferenceEngine::Core ie;
+    // bool bFaceDetectorIsLoaded;
+    // bool bFaceLandmarkIsLoaded;
+    // // -----------------------------------------------------------------------------------------------------
+    // // InferenceEngine::ExecutableNetwork executable_network;
+    // InferenceEngine::InferRequest infer_request;
 
 
+    //====================For FD====================//
+    dlib::frontal_face_detector face_input_detector;
+    dlib::shape_predictor sp_5;
+    //===============================================//
 
-    ////////////////////////////////////For FR/////////////////////////////////////
+    //====================For FR====================//
     // InferenceEngine::Core engine_ptr;
 	// InferenceEngine::InferRequest infer_request;
-    InferenceEngine::CNNNetwork network;
-	std::string network_input_name;
-    static InferenceEngine::ExecutableNetwork::Ptr exe_network;
+    // InferenceEngine::CNNNetwork network;
+	// std::string network_input_name;
+    // static InferenceEngine::ExecutableNetwork::Ptr exe_network;
 	std::vector<std::string> network_OutputName;
 	std::map<std::string, int> OutputName_vs_index;
 	unsigned char* input_image = NULL;
@@ -136,10 +143,11 @@ private:
 	// std::string Plugin_Device;
     int m_JitterCount;
     float jitterFR_emb[512];
-    std::vector<dlib::matrix<dlib::rgb_pixel>> jitter_image(const dlib::matrix<dlib::rgb_pixel>& img, int height, int width);
-    std::vector <dlib::matrix<dlib::rgb_pixel>> crops;
+    std::vector<dlib::matrix<dlib::bgr_pixel>> jitter_image(const dlib::matrix<dlib::bgr_pixel>& img, int height, int width);
+    std::vector <dlib::matrix<dlib::bgr_pixel>> crops;
     std::vector<dlib::matrix<float, 0, 1>> array_to_dlib_1D_matrix(int face_count, float* in_array, int dim_size);
     std::string ProduceUUID();
+    //===============================================//
 };
 }
 

@@ -8,12 +8,12 @@ MESSAGE("[DEBUG] Include headers: CMAKE_CURRENT_SOURCE_DIR{${CMAKE_CURRENT_SOURC
 file(GLOB face_detection_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/interactive_face_detection_demo/*.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/interactive_face_detection_demo/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/extension/*.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/extension/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/extension/common/*.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/extension/common/*.cpp
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/interactive_face_detection_demo/*.h
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/interactive_face_detection_demo/*.cpp
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/extension/*.h
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/extension/*.cpp
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/extension/common/*.h
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/extension/common/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/extension/common/src/include/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/extension/common/src/include/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/cpp/*.h
@@ -36,17 +36,17 @@ set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../lib)
 #set(lib_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/lib)
 set(lib_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../lib)
 MESSAGE("[DEBUG] lib_dir{${lib_dir}}")
-find_library(cpu_extension NAMES cpu_extension PATHS ${lib_dir} NO_DEFAULT_PATH)
-find_library(ie_inference_engine NAMES inference_engine PATHS ${lib_dir} NO_DEFAULT_PATH)
-find_library(opencv_highgui NAMES opencv_highgui PATHS ${lib_dir} NO_DEFAULT_PATH)
-find_library(ie_tbb NAMES tbb PATHS ${lib_dir} NO_DEFAULT_PATH)
-find_library(opencv_core NAMES opencv_core PATHS ${lib_dir} NO_DEFAULT_PATH)
-find_library(opencv_imgcodecs NAMES opencv_imgcodecs PATHS ${lib_dir} NO_DEFAULT_PATH)
+# find_library(cpu_extension NAMES cpu_extension PATHS ${lib_dir} NO_DEFAULT_PATH)
+# find_library(ie_inference_engine NAMES inference_engine PATHS ${lib_dir} NO_DEFAULT_PATH)
+# find_library(opencv_highgui NAMES opencv_highgui PATHS ${lib_dir} NO_DEFAULT_PATH)
+# find_library(ie_tbb NAMES tbb PATHS ${lib_dir} NO_DEFAULT_PATH)
+# find_library(opencv_core NAMES opencv_core PATHS ${lib_dir} NO_DEFAULT_PATH)
+# find_library(opencv_imgcodecs NAMES opencv_imgcodecs PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(opencv_imgproc NAMES opencv_imgproc PATHS ${lib_dir} NO_DEFAULT_PATH)
-find_library(opencv_videoio NAMES opencv_videoio PATHS ${lib_dir} NO_DEFAULT_PATH)
+# find_library(opencv_videoio NAMES opencv_videoio PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(dlib NAMES dlib PATHS ${lib_dir} NO_DEFAULT_PATH)
-find_library(MKLDNNPlugin NAMES MKLDNNPlugin PATHS ${lib_dir} NO_DEFAULT_PATH)
-find_library(mkl_tiny_tbb NAMES mkl_tiny_tbb PATHS ${lib_dir} NO_DEFAULT_PATH)
+# find_library(MKLDNNPlugin NAMES MKLDNNPlugin PATHS ${lib_dir} NO_DEFAULT_PATH)
+# find_library(mkl_tiny_tbb NAMES mkl_tiny_tbb PATHS ${lib_dir} NO_DEFAULT_PATH)
 
 MESSAGE("[DEBUG] Libraries: cpu_extension{${cpu_extension}} ie_inference_engine{${ie_inference_engine}} 
 opencv_highgui{${opencv_highgui}} ie_tbb{${ie_tbb}} opencv_core{${opencv_core}} opencv_imgcodecs{${opencv_imgcodecs}}
@@ -55,5 +55,6 @@ opencv_highgui{${opencv_highgui}} ie_tbb{${ie_tbb}} opencv_core{${opencv_core}} 
 
 # Build the shared libraries:
 add_library (frvt_11_geo_000 SHARED ${face_detection_sources})
-target_link_libraries(frvt_11_geo_000 ${cpu_extension} ${ie_inference_engine} ${opencv_highgui} ${ie_tbb} ${opencv_core} ${opencv_imgcodecs} ${opencv_imgproc} ${dlib} ${MKLDNNPlugin})
+target_link_libraries(frvt_11_geo_000 ${dlib} ${opencv_imgproc})
+# target_link_libraries(frvt_11_geo_000 ${cpu_extension} ${ie_inference_engine} ${opencv_highgui} ${ie_tbb} ${opencv_core} ${opencv_imgcodecs} ${opencv_imgproc} ${dlib} ${MKLDNNPlugin})
 
