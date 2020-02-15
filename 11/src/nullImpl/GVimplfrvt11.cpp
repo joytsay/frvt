@@ -73,16 +73,16 @@ NullImplFRVT11::createTemplate(
             // -------------------------------Set input data----------------------------------------------------
             // slog::info << "frvt imput image height: " << faces[i].height << ", width: " << faces[i].width << ", size: " << faces[i].size() << slog::endl;
             std::memcpy(frame.data, faces[i].data.get(), faces[i].size() );  
-            cv::cvtColor(frame,frame, cv::COLOR_BGR2RGB);
             frame.copyTo(showframe);
-            string chipFileName = "FDresults/OriImg(" + ProduceUUID() + ").jpg";
-            cv::imwrite(chipFileName, frame);
-            saveImgMtx.unlock();
-            dlib::matrix<dlib::bgr_pixel> enroll_chip; //original extract chip
+            dlib::matrix<dlib::rgb_pixel> enroll_chip; //original extract chip
             std::vector<dlib::point> parts;
-            dlib::cv_image<dlib::bgr_pixel> cv_imgFR(frame);
-            dlib::matrix<dlib::bgr_pixel> imgFR;
+            dlib::cv_image<dlib::rgb_pixel> cv_imgFR(frame);
+            dlib::matrix<dlib::rgb_pixel> imgFR;
             assign_image(imgFR, cv_imgFR);
+            string chipFileName = "FDresults/OriImg(" + ProduceUUID() + ").jpg";
+            dlib::save_jpeg(imgFR,chipFileName,100);
+            saveImgMtx.unlock();
+
             std::vector<dlib::rectangle> face_det = face_input_detector(imgFR);
             // For multi detected face
             int maxFaceId = 0;
@@ -121,8 +121,8 @@ NullImplFRVT11::createTemplate(
                 // cout << "eyeCoordinatesRightEye("<< i << "): (x,y)=(" << eyeCoordinates[i].xright << "," << eyeCoordinates[i].yright << ")"  << endl;
                 saveImgMtx.lock();
                 string detectFileName = "FDresults/face(" + ProduceUUID() + ").jpg";
-                dlib::cv_image<dlib::bgr_pixel> cv_temp(showframe);
-                dlib::matrix<dlib::bgr_pixel> dlib_array2d;
+                dlib::cv_image<dlib::rgb_pixel> cv_temp(showframe);
+                dlib::matrix<dlib::rgb_pixel> dlib_array2d;
                 dlib::assign_image(dlib_array2d, cv_temp);
                 dlib::save_jpeg(dlib_array2d,detectFileName,100);
                 // cv::imwrite(detectFileName, showframe);
@@ -130,7 +130,7 @@ NullImplFRVT11::createTemplate(
                 // ---------------------------------------------------------------------------------------
                 
                 //dlib::rectangle known_det;
-                // dlib::matrix<dlib::bgr_pixel> enroll_chip; //original extract chip
+                // dlib::matrix<dlib::rgb_pixel> enroll_chip; //original extract chip
                 // // known_det.set_left(rect.x);
                 // // known_det.set_top(rect.y);
                 // // known_det.set_right(rect.x + rect.width);
@@ -200,7 +200,7 @@ NullImplFRVT11::createTemplate(
             }            
             
             // std::vector<dlib::matrix<float, 0, 1>> SVM_descriptor;
-            // std::vector<dlib::matrix<dlib::bgr_pixel>> SVM_distrub_color_crops;
+            // std::vector<dlib::matrix<dlib::rgb_pixel>> SVM_distrub_color_crops;
             // int cropsCount = m_JitterCount;
             // if(role == TemplateRole::Enrollment_11 || role == TemplateRole::Enrollment_1N){
             //     // slog::info << "FR image TemplateRole Enrollment"<< slog::endl;
@@ -401,7 +401,7 @@ Interface::getImplementation()
     return std::make_shared<NullImplFRVT11>();
 }
 
-std::vector<dlib::matrix<dlib::bgr_pixel>> NullImplFRVT11::jitter_image(const dlib::matrix<dlib::bgr_pixel>& img, int height, int width)
+std::vector<dlib::matrix<dlib::rgb_pixel>> NullImplFRVT11::jitter_image(const dlib::matrix<dlib::rgb_pixel>& img, int height, int width)
 {
     bool Jitter_num_svm[3];
     int m_disturb_gamma_svm[3];
@@ -414,7 +414,7 @@ std::vector<dlib::matrix<dlib::bgr_pixel>> NullImplFRVT11::jitter_image(const dl
 
 	crops.clear();
 	crops.shrink_to_fit();
-	std::vector <dlib::matrix<dlib::bgr_pixel>>().swap(crops);
+	std::vector <dlib::matrix<dlib::rgb_pixel>>().swap(crops);
 
 	int Jitter_num_svm_count = 0;
 	for (int j = 0; j < 3; j++) 
@@ -433,7 +433,7 @@ std::vector<dlib::matrix<dlib::bgr_pixel>> NullImplFRVT11::jitter_image(const dl
 			cropper.set_max_rotation_degrees(3);
 			std::vector<dlib::mmod_rect> raw_boxes(1), ignored_crop_boxes;
 			raw_boxes[0] = shrink_rect(get_rect(img), 3);
-			dlib::matrix<dlib::bgr_pixel> temp;
+			dlib::matrix<dlib::rgb_pixel> temp;
 			char strpath[512];
 			char FRdir_msg[512];
 			for (int i = 0; i < m_JitterCount; ++i)

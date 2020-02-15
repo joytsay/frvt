@@ -40,7 +40,7 @@
 // #define TBB_PREVIEW_GLOBAL_CONTROL 1
 // #include <tbb/global_control.h>
 #include <opencv2/opencv.hpp>
-#include <opencv2/imgcodecs.hpp>
+// #include <opencv2/imgcodecs.hpp>
 
 #define DLIB_JPEG_SUPPORT
 #include <dlib/image_processing/render_face_detections.h>
@@ -145,8 +145,8 @@ private:
 	// std::string Plugin_Device;
     int m_JitterCount;
     float jitterFR_emb[512];
-    std::vector<dlib::matrix<dlib::bgr_pixel>> jitter_image(const dlib::matrix<dlib::bgr_pixel>& img, int height, int width);
-    std::vector <dlib::matrix<dlib::bgr_pixel>> crops;
+    std::vector<dlib::matrix<dlib::rgb_pixel>> jitter_image(const dlib::matrix<dlib::rgb_pixel>& img, int height, int width);
+    std::vector <dlib::matrix<dlib::rgb_pixel>> crops;
     std::vector<dlib::matrix<float, 0, 1>> array_to_dlib_1D_matrix(int face_count, float* in_array, int dim_size);
     std::string ProduceUUID();
     //===============================================//
