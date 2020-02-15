@@ -41,7 +41,7 @@ MESSAGE("[DEBUG] lib_dir{${lib_dir}}")
 # find_library(opencv_highgui NAMES opencv_highgui PATHS ${lib_dir} NO_DEFAULT_PATH)
 # find_library(ie_tbb NAMES tbb PATHS ${lib_dir} NO_DEFAULT_PATH)
 # find_library(opencv_core NAMES opencv_core PATHS ${lib_dir} NO_DEFAULT_PATH)
-# find_library(opencv_imgcodecs NAMES opencv_imgcodecs PATHS ${lib_dir} NO_DEFAULT_PATH)
+find_library(opencv_imgcodecs NAMES opencv_imgcodecs PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(opencv_imgproc NAMES opencv_imgproc PATHS ${lib_dir} NO_DEFAULT_PATH)
 # find_library(opencv_videoio NAMES opencv_videoio PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(dlib NAMES dlib PATHS ${lib_dir} NO_DEFAULT_PATH)
@@ -55,6 +55,6 @@ opencv_highgui{${opencv_highgui}} ie_tbb{${ie_tbb}} opencv_core{${opencv_core}} 
 
 # Build the shared libraries:
 add_library (frvt_11_geo_000 SHARED ${face_detection_sources})
-target_link_libraries(frvt_11_geo_000 ${dlib} ${opencv_imgproc})
+target_link_libraries(frvt_11_geo_000 ${dlib} ${opencv_imgproc} ${opencv_imgcodecs})
 # target_link_libraries(frvt_11_geo_000 ${cpu_extension} ${ie_inference_engine} ${opencv_highgui} ${ie_tbb} ${opencv_core} ${opencv_imgcodecs} ${opencv_imgproc} ${dlib} ${MKLDNNPlugin})
 

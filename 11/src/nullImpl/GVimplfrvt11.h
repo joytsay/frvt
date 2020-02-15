@@ -40,6 +40,8 @@
 // #define TBB_PREVIEW_GLOBAL_CONTROL 1
 // #include <tbb/global_control.h>
 #include <opencv2/opencv.hpp>
+#include <opencv2/imgcodecs.hpp>
+
 #define DLIB_JPEG_SUPPORT
 #include <dlib/image_processing/render_face_detections.h>
 #include <dlib/image_processing.h>
