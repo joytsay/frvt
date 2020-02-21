@@ -20,13 +20,14 @@ using namespace FRVT_11;
 NullImplFRVT11::NullImplFRVT11() {}
 
 NullImplFRVT11::~NullImplFRVT11() {
-    //For FD
-    face_input_detector = dlib::get_frontal_face_detector();
-
     if(input_image){
         delete[] input_image;
         input_image = NULL;
     }
+    //For FD
+    face_input_detector = dlib::get_frontal_face_detector();
+    //For FR
+    tf_utils::DeleteGraph(graph);
 }
 
 ReturnStatus
@@ -40,8 +41,23 @@ NullImplFRVT11::initialize(const std::string &configDir)
         if(!input_image){
             input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
         }
+
+        TF_Status* status = TF_NewStatus();
+        TF_SessionOptions* options = TF_NewSessionOptions();
+        uint8_t intra_op_parallelism_threads = 1;
+        uint8_t inter_op_parallelism_threads = 1;
+        uint8_t buf[]={0x10,intra_op_parallelism_threads,0x28,inter_op_parallelism_threads};
+        TF_SetConfig(options, buf,sizeof(buf),status);
+
         std::string FRFileName = configDir + "/09-02_02-45.pb";
-        auto graph = tf_utils::LoadGraph(FRFileName.c_str());
+        graph = tf_utils::LoadGraph(FRFileName.c_str());
+         
+        if (graph == nullptr) {
+            std::cout << "[INFO] Can't load graph" << std::endl;
+            return ReturnStatus(ReturnCode::ConfigError);
+        }else{
+            std::cout << "[INFO] Load graph success" << std::endl;
+        }
         // -----------------------------------------------------------------------------------------------------
     } catch (const std::exception & ex) {
         std::cerr << ex.what() << std::endl;
@@ -76,9 +92,9 @@ NullImplFRVT11::createTemplate(
             std::vector<dlib::point> parts;
             dlib::cv_image<dlib::rgb_pixel> cv_imgFR(frame);
             dlib::matrix<dlib::rgb_pixel> imgFR;
-            assign_image(imgFR, cv_imgFR);
-            string chipFileName = "FDresults/OriImg(" + ProduceUUID() + ").jpg";
-            dlib::save_jpeg(imgFR,chipFileName,100);
+            dlib::assign_image(imgFR, cv_imgFR);
+            // string chipFileName = "FDresults/OriImg(" + ProduceUUID() + ").jpg";
+            // dlib::save_jpeg(imgFR,chipFileName,100);
             saveImgMtx.unlock();
 
             std::vector<dlib::rectangle> face_det = face_input_detector(imgFR);
@@ -117,109 +133,63 @@ NullImplFRVT11::createTemplate(
                 //////////ISO standard: The label "left" refers to subject's left eye (and similarly for the right eye), such that xright < xleft/////////////////
                 // cout << "eyeCoordinatesLeftEye("<< i << "): (x,y)=(" << eyeCoordinates[i].xleft << "," << eyeCoordinates[i].yleft << ")"  << endl;
                 // cout << "eyeCoordinatesRightEye("<< i << "): (x,y)=(" << eyeCoordinates[i].xright << "," << eyeCoordinates[i].yright << ")"  << endl;
-                saveImgMtx.lock();
-                string detectFileName = "FDresults/face(" + ProduceUUID() + ").jpg";
-                dlib::cv_image<dlib::rgb_pixel> cv_temp(showframe);
-                dlib::matrix<dlib::rgb_pixel> dlib_array2d;
-                dlib::assign_image(dlib_array2d, cv_temp);
-                dlib::save_jpeg(dlib_array2d,detectFileName,100);
-                // cv::imwrite(detectFileName, showframe);
-                saveImgMtx.unlock();
-                // ---------------------------------------------------------------------------------------
-                
-                //dlib::rectangle known_det;
-                // dlib::matrix<dlib::rgb_pixel> enroll_chip; //original extract chip
-                // // known_det.set_left(rect.x);
-                // // known_det.set_top(rect.y);
-                // // known_det.set_right(rect.x + rect.width);
-                // // known_det.set_bottom(rect.y + rect.height);
-                // // slog::info << "known_det("<<  known_det.left() << "," << known_det.right() << "," <<
-                // //                  known_det.top() << "," << known_det.bottom() << ")" << slog::endl;
-                // std::vector<dlib::point> parts;
-                // parts.resize(5);
-                // //mapping to dlibLandmark leftEye:2 3 rightEye:1 0 nosePhiltrum:4
-                // parts[0].x() = rect.x + rect.width * (normed_landmarks[2 * 3]);
-                // parts[0].y() = rect.y + rect.height * (normed_landmarks[2 * 3 + 1]);
-                // parts[1].x() = rect.x + rect.width * (normed_landmarks[2 * 2]); 
-                // parts[1].y() = rect.y + rect.height * (normed_landmarks[2 * 2 + 1]);
-                // parts[2].x() = rect.x + rect.width * (normed_landmarks[2 * 1]); 
-                // parts[2].y() = rect.y + rect.height * (normed_landmarks[2 * 1 + 1]);
-                // parts[3].x() = rect.x + rect.width * (normed_landmarks[2 * 0]); 
-                // parts[3].y() = rect.y + rect.height * (normed_landmarks[2 * 0 + 1]);
-                // parts[4].x() = rect.x + rect.width * (normed_landmarks[2 * 5]); 
-                // parts[4].y() = rect.y + rect.height * (normed_landmarks[2 * 5 + 1]);
-                // for (int k = 0; k < 5; k++) {
-                //     cv::circle(showframe, cv::Point(parts[k].x(),  parts[k].y()), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 255, 255), -1);
-                //     string lmText = to_string(k); 
-                //     cv::putText(showframe, lmText, cv::Point(parts[k].x(),  parts[k].y()), cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(0, 255, 0));
-                // }
-                // cv::Point pt1(rect.x, rect.y);
-                // // and its bottom right corner.
-                // cv::Point pt2(rect.x + rect.width, rect.y + rect.height);
-                // // These two calls...
-                // cv::rectangle(showframe, pt1, pt2, cv::Scalar(0, 0, 255));
-                // cv::imshow("Detection results", showframe);
                 // saveImgMtx.lock();
-                // std::time_t t = std::time(0);   // get time now
-                // std::tm* now = std::localtime(&t);
-                // srand((unsigned) time(&t));
-                // int rndNumber = rand() % 10000;
-                // string detectFileName = "FDresults/face(" + to_string(now->tm_year + 1900) + "_"
-                // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
-                // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
-                // string detectFileName = "FDresults/face(" + ProduceUUID() + ").jpg"; ;
-                // cv::imwrite(detectFileName, showframe);
+                // string detectFileName = "FDresults/face(" + ProduceUUID() + ").jpg";
+                // dlib::cv_image<dlib::rgb_pixel> cv_temp(showframe);
+                // dlib::matrix<dlib::rgb_pixel> dlib_array2d;
+                // dlib::assign_image(dlib_array2d, cv_temp);
+                // dlib::save_jpeg(dlib_array2d,detectFileName,100);
+                // // cv::imwrite(detectFileName, showframe);
                 // saveImgMtx.unlock();
-                // cv::waitKey(300);
-                // cv::destroyAllWindows();
-                // cout << "01" << endl;
-                // ---------------------------------------------------------------------------------------
-
-
-
+                
                 //-------------------------------Crop face image================================
                 dlib::extract_image_chip(imgFR, dlib::get_face_chip_details(shape_5, FR_IMAGE_HEIGHT, FR_IMAGE_PADDING*0.01), enroll_chip);
                 // cv::Mat enrollChipMat = dlib::toMat(enroll_chip);
-                saveImgMtx.lock();
-                std::time_t t = std::time(0);   // get time now
-                std::tm* now = std::localtime(&t);
-                srand((unsigned) time(&t));
-                int rndNumber = rand() % 10000;
-                string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
-                dlib::save_jpeg(enroll_chip,chipFileName,100);
-                // cv::imwrite(chipFileName, enrollChipMat);
-                saveImgMtx.unlock();
+                // saveImgMtx.lock();
+                // std::time_t t = std::time(0);   // get time now
+                // std::tm* now = std::localtime(&t);
+                // std::srand((unsigned) time(&t));
+                // int rndNumber = rand() % 10000;
+                // string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
+                // dlib::save_jpeg(enroll_chip,chipFileName,100);
+                // // cv::imwrite(chipFileName, enrollChipMat);
+                // saveImgMtx.unlock();
                 // cv::waitKey(300);
                 // cv::destroyAllWindows();
                 // cout << "06" << endl;
                 
             }else{//no face detected return error enum
-                //return ReturnStatus(ReturnCode::FaceDetectionError);
+                // return ReturnStatus(ReturnCode::FaceDetectionError);
             }            
             
-            // std::vector<dlib::matrix<float, 0, 1>> SVM_descriptor;
-            // std::vector<dlib::matrix<dlib::rgb_pixel>> SVM_distrub_color_crops;
-            // int cropsCount = m_JitterCount;
-            // if(role == TemplateRole::Enrollment_11 || role == TemplateRole::Enrollment_1N){
-            //     // slog::info << "FR image TemplateRole Enrollment"<< slog::endl;
-            //     if(m_JitterCount > 0){
-            //         SVM_distrub_color_crops = this->jitter_image(enroll_chip, FR_IMAGE_HEIGHT, FR_IMAGE_HEIGHT);
-            //     }else{
-            //         SVM_distrub_color_crops.push_back(enroll_chip);
-            //         cropsCount = 1;
-            //     }
-            // }else{
-            //     // slog::info << "FR image TemplateRole Verification"<< slog::endl;
-            //     SVM_distrub_color_crops.push_back(enroll_chip);
-            //     cropsCount = 1;
-            // }
+
+            std::vector<dlib::matrix<float, 0, 1>> SVM_descriptor;
+            std::vector<dlib::matrix<dlib::rgb_pixel>> SVM_distrub_color_crops;
+            int cropsCount = m_JitterCount;
+            if(face_det.size() > 0){
+                if(role == TemplateRole::Enrollment_11 || role == TemplateRole::Enrollment_1N){
+                    // slog::info << "FR image TemplateRole Enrollment"<< slog::endl;
+                    if(m_JitterCount > 0){
+                        SVM_distrub_color_crops = this->jitter_image(enroll_chip, FR_IMAGE_HEIGHT, FR_IMAGE_HEIGHT);
+                    }else{
+                        SVM_distrub_color_crops.push_back(enroll_chip);
+                        cropsCount = 1;
+                    }
+                }else{
+                    // slog::info << "FR image TemplateRole Verification"<< slog::endl;
+                    SVM_distrub_color_crops.push_back(enroll_chip);
+                    cropsCount = 1;
+                }
+            }else{
+                cropsCount = 0;
+            }
 
             // cout << "07" << endl;
             
 
-            // for (int i = 0; i < cropsCount; i++)
-            // {
-            //     cv::Mat chipMat = dlib::toMat(SVM_distrub_color_crops[i]);
+            for (int i = 0; i < cropsCount; i++)
+            {
+                cv::Mat chipMat = dlib::toMat(SVM_distrub_color_crops[i]);
                 // if(i == cropsCount - 1){
                 //     std::string jitterShowName = "LastChip(" + to_string(i) + ")";
                 //     cv::imshow(jitterShowName, chipMat);
@@ -239,6 +209,41 @@ NullImplFRVT11::createTemplate(
                 // }
                 // ---------------------------------------------------------------------------------------------------
 
+                // --------------------------Prepare FR input---------------------------------------------------------
+                // convert image to float32
+                cv::Mat image32f;
+                chipMat.convertTo( image32f, CV_32F );
+//  cout << "000" << endl;
+                // copy to vector:
+                std::vector<float> input_data;
+                input_data.assign( (float*) image32f.data, (float*) image32f.data + image32f.total() * image32f.channels() );
+//  cout << "001" << endl;
+                // dimensions
+                const std::vector<std::int64_t> input_dims = { 1, chipMat.rows, chipMat.cols, chipMat.channels() };
+//  cout << "002" << endl;
+
+                // Tensors:
+                const std::vector<TF_Output> input_ops = { {TF_GraphOperationByName( graph, "input" ), 0} };
+                const std::vector<TF_Tensor*> input_tensors = { tf_utils::CreateTensor( TF_FLOAT, input_dims, input_data ) };
+                const std::vector<TF_Output> out_ops = { {TF_GraphOperationByName( graph, "embedding" ), 0} };
+                std::vector<TF_Tensor*> output_tensors = { nullptr };
+//  cout << "003" << endl;
+
+                // create TF session:
+                auto session = tf_utils::CreateSession( graph );
+//  cout << "004" << endl;
+
+                // run Session
+                const TF_Code code = tf_utils::RunSession( session, input_ops, input_tensors, out_ops, output_tensors );
+//  cout << "005" << endl;
+
+                // get the data:
+                const std::vector<std::vector<float>> data = tf_utils::GetTensorsData<float>( output_tensors );
+                // ---------------------------------------------------------------------------------------------------
+//  cout << "006" << endl;
+                
+
+                ////deprecated intel inference engine code////
                 // --------------------------Prepare FR input---------------------------------------------------------
                 // if (image_size != chipMat.rows * chipMat.cols) {
                 //     slog::info << "FR image_size didn`t match network_input_size"<< slog::endl;
@@ -263,10 +268,13 @@ NullImplFRVT11::createTemplate(
 
                 // ---------------------------FR Postprocess output blobs-----------------------------------------------
             //         infer_request.Infer(); //FR Do inference
-            //         memset(jitterFR_emb,0.0,FR_EMBEDDING_SIZE);
+                    memset(jitterFR_emb,0.0,FR_EMBEDDING_SIZE);
+                    for(int i=0;i<FR_EMBEDDING_SIZE;i++){
+                        jitterFR_emb[i] = data[0][i];
+                    }
             //         memset(gender,0.0,2);
             //         memset(age,0.0,7);
-            //         for (int out_c = 0; out_c < network_OutputName.size(); out_c++) {
+                    // for (int out_c = 0; out_c < network_OutputName.size(); out_c++) {
             //             const InferenceEngine::Blob::Ptr output_blob = infer_request.GetBlob(network_OutputName[out_c]);
             //             float* pOt = NULL;
             //             switch (OutputName_vs_index[network_OutputName[out_c]]) {
@@ -294,22 +302,24 @@ NullImplFRVT11::createTemplate(
             //                 // std::cout<<"ntop: "<<ntop<<", cnt: "<<cnt<<"output_data[id]"<<to_string(output_data[id])<<endl;
             //             }
             //         }
-            //         SVM_descriptor.push_back(array_to_dlib_1D_matrix(1, jitterFR_emb, FR_EMBEDDING_SIZE)[0]);
+                    SVM_descriptor.push_back(array_to_dlib_1D_matrix(1, jitterFR_emb, FR_EMBEDDING_SIZE)[0]);
             //         // FR_emb[emb]
-            //     } //jitter cropsCount
+            } //jitter cropsCount
             //     // -----------------------------------------------------------------------------------------------------
-            //     // slog::info << "FR features[0,1,127,510,511]: " 
-            //     // << "[" << FR_emb[0] << ", " << FR_emb[1] << ", " << FR_emb[127] << ", " << FR_emb[510] << ", " << FR_emb[511] << "] " << slog::endl;
-            //     dlib::matrix<float, 0, 1> temp_mat = mean(mat(SVM_descriptor));
-            //     std::vector<dlib::matrix<float, 0, 1>> EnrollDescriptor;
-            //     int normalizeLength = dlib::length(temp_mat) < 1 ? 1 : dlib::length(temp_mat);
-            //     EnrollDescriptor.push_back(temp_mat / normalizeLength); //Use jitter image and normalize to length
-            //     memset(FR_emb,0.0,FR_EMBEDDING_SIZE);
-            //     for (int j = 0; j < FR_EMBEDDING_SIZE; j++)
-            //     {
-            //         FR_emb[j] = EnrollDescriptor[EnrollDescriptor.size() - 1](j, 0);
-            //     }
-            //     std::vector <dlib::matrix<float, 0, 1>>().swap(EnrollDescriptor);
+                dlib::matrix<float, 0, 1> temp_mat = mean(mat(SVM_descriptor));
+                std::vector<dlib::matrix<float, 0, 1>> EnrollDescriptor;
+                int normalizeLength = dlib::length(temp_mat) < 1 ? 1 : dlib::length(temp_mat);
+                EnrollDescriptor.push_back(temp_mat / normalizeLength); //Use jitter image and normalize to length
+                memset(FR_emb,0.0,FR_EMBEDDING_SIZE);
+                for (int j = 0; j < FR_EMBEDDING_SIZE; j++)
+                {
+                    FR_emb[j] = EnrollDescriptor[EnrollDescriptor.size() - 1](j, 0);
+                }
+                std::vector <dlib::matrix<float, 0, 1>>().swap(EnrollDescriptor);
+
+                // std::cout << "FR features[0,1,127,510,511]: " 
+                // << "[" << FR_emb[0] << ", " << FR_emb[1] << ", " << FR_emb[127] << ", " << FR_emb[510] << ", " << FR_emb[511] << "] " << std::endl;
+
             // } //detected faces vector array
 
             std::vector<float> fv;
@@ -341,10 +351,10 @@ NullImplFRVT11::createTemplate(
                 // -----------------------------------------------------------------------------------------------------
             }
             //==test use==
-            memset(FR_emb,0,__SIZEOF_FLOAT__*FR_EMBEDDING_SIZE);
-            for(int emb = 0; emb < FR_EMBEDDING_SIZE; emb++){
-                fv.push_back(FR_emb[emb]);
-            }
+            // memset(FR_emb,0,__SIZEOF_FLOAT__*FR_EMBEDDING_SIZE);
+            // for(int emb = 0; emb < FR_EMBEDDING_SIZE; emb++){
+            //     fv.push_back(FR_emb[emb]);
+            // }
             //==test use==
             const uint8_t* bytes = reinterpret_cast<const uint8_t*>(fv.data());
             int dataSize = sizeof(float) * fv.size();
@@ -474,7 +484,7 @@ std::vector<dlib::matrix<float, 0, 1>> NullImplFRVT11::array_to_dlib_1D_matrix(i
 }
 
 std::string NullImplFRVT11::ProduceUUID(){
-    srand(time(NULL));
+    std::srand(time(NULL));
     char strUuid[128];
     sprintf(strUuid, "%x%x-%x-%x-%x-%x%x%x", 
     rand(), rand(),                 // Generates a 64-bit Hex number

@@ -131,6 +131,7 @@ private:
     //===============================================//
 
     //====================For FR====================//
+    TF_Graph *graph;
     // InferenceEngine::Core engine_ptr;
 	// InferenceEngine::InferRequest infer_request;
     // InferenceEngine::CNNNetwork network;
@@ -143,8 +144,8 @@ private:
 	double mean_values[3];
 	double scale_values[3];
     float FR_emb[512];
-    float gender[2];
-    float age[7];
+    // float gender[2];
+    // float age[7];
     // int detectFailCount;
     // int imgCount;
 	// std::vector<std::string> Device_List;
