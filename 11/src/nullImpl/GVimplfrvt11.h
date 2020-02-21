@@ -42,6 +42,12 @@
 #include <opencv2/opencv.hpp>
 // #include <opencv2/imgcodecs.hpp>
 
+
+#include "tf_utils.hpp"
+#include <scope_guard.hpp>
+#include <iostream>
+#include <vector>
+
 #define DLIB_JPEG_SUPPORT
 #include <dlib/image_processing/render_face_detections.h>
 #include <dlib/image_processing.h>

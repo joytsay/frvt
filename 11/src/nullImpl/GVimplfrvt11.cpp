@@ -36,14 +36,12 @@ NullImplFRVT11::initialize(const std::string &configDir)
         face_input_detector = dlib::get_frontal_face_detector();
         std::string LandMarkFileName = configDir + "/geo_vision_5_face_landmarks.dat";
         dlib::deserialize(LandMarkFileName) >> sp_5; //read dlib landmark model
-        //tbb::global_control(tbb::global_control::max_allowed_parallelism, 1);
-        // imgCount = 0;
-        // detectFailCount = 0;
-        //tbbControl = new tbb::global_control(tbb::global_control::max_allowed_parallelism, 1);
         m_JitterCount = FR_JITTER_COUNT;
         if(!input_image){
             input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
-        }	        
+        }
+        std::string FRFileName = configDir + "/09-02_02-45.pb";
+        auto graph = tf_utils::LoadGraph(FRFileName.c_str());
         // -----------------------------------------------------------------------------------------------------
     } catch (const std::exception & ex) {
         std::cerr << ex.what() << std::endl;
