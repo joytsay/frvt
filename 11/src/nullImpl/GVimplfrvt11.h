@@ -145,8 +145,8 @@ private:
 	double mean_values[3];
 	double scale_values[3];
     float FR_emb[512];
-    // dlib::matrix<float, 0, 1> test_matrix1;
-    // dlib::matrix<float, 0, 1> test_matrix2;
+    dlib::matrix<float, 0, 1> test_matrix1;
+    dlib::matrix<float, 0, 1> test_matrix2;
     int enrollCount;
     // float gender[2];
     // float age[7];
@@ -160,6 +160,7 @@ private:
     std::vector <dlib::matrix<dlib::rgb_pixel>> crops;
     std::vector<dlib::matrix<float, 0, 1>> array_to_dlib_1D_matrix(int face_count, float* in_array, int dim_size);
     std::string ProduceUUID();
+    static void Deallocator(void* data, size_t length, void* arg);
     //===============================================//
 };
 }

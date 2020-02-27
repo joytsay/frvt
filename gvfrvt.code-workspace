@@ -59,7 +59,8 @@
 			"valarray": "cpp",
 			"future": "cpp",
 			"forward_list": "cpp",
-			"typeindex": "cpp"
+			"typeindex": "cpp",
+			"random": "cpp"
 		}
 	}
 }

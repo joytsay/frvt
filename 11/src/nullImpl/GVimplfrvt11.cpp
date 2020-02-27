@@ -52,6 +52,11 @@ NullImplFRVT11::initialize(const std::string &configDir)
         }else{
             // std::cout << "[INFO] Load graph success" << std::endl;
         }
+        if(!input_image){
+            input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
+        }	
+        mean_values[0]  = mean_values[1]  = mean_values[2]  = 255.0*0.5;
+	    scale_values[0] = scale_values[1] = scale_values[2] = 255.0*0.5;
         // -----------------------------------------------------------------------------------------------------
     } catch (const std::exception & ex) {
         std::cerr << ex.what() << std::endl;
@@ -138,7 +143,7 @@ NullImplFRVT11::createTemplate(
                 
                 //-------------------------------Crop face image================================
                 dlib::extract_image_chip(imgFR, dlib::get_face_chip_details(shape_5, FR_IMAGE_HEIGHT, FR_IMAGE_PADDING*0.01), enroll_chip);
-                if(enrollCount==0){
+                // if(enrollCount==0){
                     cv::Mat enrollChipMat = dlib::toMat(enroll_chip);
                     saveImgMtx.lock();
                     std::time_t t = std::time(0);   // get time now
@@ -147,7 +152,7 @@ NullImplFRVT11::createTemplate(
                     int rndNumber = rand() % 10000;
                     string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
                     dlib::save_jpeg(enroll_chip,chipFileName,100);
-                }
+                // }
                 // cv::imwrite(chipFileName, enrollChipMat);
                 saveImgMtx.unlock();
                 // cv::waitKey(300);
@@ -185,7 +190,49 @@ NullImplFRVT11::createTemplate(
 
             for (int i = 0; i < cropsCount; i++)
             {
-                cv::Mat chipMat = dlib::toMat(SVM_distrub_color_crops[i]);
+                // cv::Mat image = dlib::toMat(SVM_distrub_color_crops[i]);
+
+                // std::vector<TF_Output> 	input_tensors, output_tensors;
+                // std::vector<TF_Tensor*> input_values, output_values;
+
+                // // input tensor shape.
+                // int num_dims = 4;
+                // std::int64_t input_dims[4] = {1, image.rows, image.cols, 3}; //1 is number of batch, and 3 is the no of channels.
+                // int num_bytes_in = image.cols * image.rows * 3; //3 is the number of channels.
+                
+                // input_tensors.push_back({TF_GraphOperationByName(graph, "input"),0});
+                // input_values.push_back(TF_NewTensor(TF_UINT8, input_dims, num_dims, image.data, num_bytes_in, &Deallocator, 0));
+
+                // output_tensors.push_back({ TF_GraphOperationByName(graph, "embedding"),0 });
+                // output_values.push_back(nullptr);
+
+                // TF_Status* status = TF_NewStatus();
+                // TF_SessionOptions* options = TF_NewSessionOptions();
+                // std::array<std::uint8_t, 13> config = {{ 0x0a ,0x07, 0x0a, 0x03, 0x43, 0x50, 0x55, 0x10, 0x01, 0x10, 0x01, 0x28, 0x01}};
+                // TF_SetConfig(options, config.data(), config.size(), status);
+                // TF_Session* session = TF_NewSession(graph, options, status);
+                // TF_DeleteSessionOptions(options);
+                // TF_SessionRun(session, nullptr,
+                //     &input_tensors[0], &input_values[0], input_values.size(),
+                //     &output_tensors[0], &output_values[0], 1, //1 is the number of outputs count..
+                //     nullptr, 0, nullptr, status
+                // );
+                // if (TF_GetCode(status) != TF_OK)
+                // {
+                //     printf("ERROR: SessionRun: %s", TF_Message(status));
+                // }
+                // TF_DeleteStatus(status);
+
+                // float* embeddingResults = new float[FR_EMBEDDING_SIZE];
+                // embeddingResults = static_cast<float_t*>(TF_TensorData(output_values[0]));
+                // auto data = static_cast<float*>(TF_TensorData(output_values[0]));
+
+                // std::cout << "Output vals: " << data[0] << ", " << data[1] << ", " << data[2] << ", " << data[3] << std::endl;
+
+                // cout<<typeid(embeddingResults).name() <<endl;
+
+
+
                 // if(i == cropsCount - 1){
                 //     std::string jitterShowName = "LastChip(" + to_string(i) + ")";
                 //     cv::imshow(jitterShowName, chipMat);
@@ -207,18 +254,33 @@ NullImplFRVT11::createTemplate(
 
                 // --------------------------Prepare FR input---------------------------------------------------------
                 // convert image to float32
-                cv::Mat image32f;
-                chipMat.convertTo( image32f, CV_32F );
+                cv::Mat chipMat = dlib::toMat(SVM_distrub_color_crops[i]);
+                // cv::Mat image32f;
+                // chipMat.convertTo( image32f, CV_32F );
                 // copy to vector:
+                size_t num_channels = 3;
+                size_t image_size = FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT;
                 std::vector<float> input_data;
-                input_data.assign( (float*) image32f.data, (float*) image32f.data + image32f.total() * image32f.channels() );
+                input_data.resize(num_channels*image_size);
+                std::memcpy(input_image, chipMat.data, chipMat.rows * chipMat.cols*3);
+                /** Iterate over all input images **/
+                    /** Iterate over all pixel in image (r,g,b) **/
+                    for (size_t pid = 0; pid < image_size; pid++) {
+                        /** Iterate over all channels **/
+                        for (size_t ch = 0; ch < num_channels; ++ch) {
+                            // std::cout<<"pid: "<<pid<<", ch: "<<ch<<endl;
+                            chipMat.data[ch *image_size + pid] = ((double)input_image[pid*num_channels + ch]- mean_values[ch]) / scale_values[ch];
+                            // std::cout<<"data: "<<image_size + pid<<", input_image: "<<pid*num_channels + ch<<endl;
+                        }
+                    }
+                // ---------------------------------------------------------------------------------------------------
+                // input_data.assign( (float*) image32f.data, (float*) image32f.data + image32f.total() * image32f.channels() );
                 // dimensions
                 const std::vector<std::int64_t> input_dims = { 1, chipMat.rows, chipMat.cols, chipMat.channels() };
                 // Tensors:
                 const std::vector<TF_Output> input_ops = { {TF_GraphOperationByName( graph, "input" ), 0} };
                 const std::vector<TF_Tensor*> input_tensors = { tf_utils::CreateTensor( TF_FLOAT, input_dims, input_data ) };
                 SCOPE_EXIT{ tf_utils::DeleteTensors(input_tensors); }; // Auto-delete on scope exit.
-                std::vector <float>().swap(input_data);
 
                 const std::vector<TF_Output> out_ops = { {TF_GraphOperationByName( graph, "embedding" ), 0} };
                 std::vector<TF_Tensor*> output_tensors = { nullptr };
@@ -235,6 +297,46 @@ NullImplFRVT11::createTemplate(
                 SCOPE_EXIT{ tf_utils::DeleteSession(session); }; // Auto-delete on scope exit.
                 // get the data:
                 const std::vector<std::vector<float>> data = tf_utils::GetTensorsData<float>( output_tensors );
+                // cout<< "data.size : "<< data.size()<<", data[0].size" << data[0].size()<<endl;
+
+
+                // std::vector<TF_Output> 	input_tensors, output_tensors;
+                // std::vector<TF_Tensor*> input_values, output_values;
+
+                // //input tensor shape.
+                // int num_dims = 4;
+                // std::int64_t input_dims[4] = {1, chipMat.rows, chipMat.cols, 3}; //1 is number of batch, and 3 is the no of channels.
+                // int num_bytes_in = chipMat.cols * chipMat.rows * 3; //3 is the number of channels.
+                
+                // input_tensors.push_back({TF_GraphOperationByName(graph, "input"),0});
+                // input_values.push_back(TF_NewTensor(TF_FLOAT, input_dims, num_dims, chipMat.data, num_bytes_in, &Deallocator, 0));
+
+                // output_tensors.push_back({ TF_GraphOperationByName(graph, "embedding"),0 });
+                // output_values.push_back(nullptr);
+
+
+                // // create TF session:
+                // TF_Status* status = TF_NewStatus();
+                // TF_SessionOptions* options = TF_NewSessionOptions();
+                // std::array<std::uint8_t, 13> config = {{ 0x0a ,0x07, 0x0a, 0x03, 0x43, 0x50, 0x55, 0x10, 0x01, 0x10, 0x01, 0x28, 0x01}};
+                // TF_SetConfig(options, config.data(), config.size(), status);
+                // TF_Session* session = tf_utils::CreateSession( graph, options, status );
+
+                // TF_SessionRun(session, nullptr,
+                //     &input_tensors[0], &input_values[0], input_values.size(),
+                //     &output_tensors[0], &output_values[0], 1, //1 is the number of outputs count..
+                //     nullptr, 0, nullptr, status
+                // );
+                // if (TF_GetCode(status) != TF_OK)
+                // {
+                //     printf("ERROR: SessionRun: %s", TF_Message(status));
+                // }
+                
+                // auto detection_classes = static_cast<float_t*>(TF_TensorData(output_values[0]));
+
+
+
+
                 // ---------------------------------------------------------------------------------------------------
                 ////deprecated intel inference engine code////
                 // --------------------------Prepare FR input---------------------------------------------------------
@@ -261,7 +363,11 @@ NullImplFRVT11::createTemplate(
 
                 // ---------------------------FR Postprocess output blobs-----------------------------------------------
             //         infer_request.Infer(); //FR Do inference
-                    // memset(jitterFR_emb,0.0,FR_EMBEDDING_SIZE*__SIZEOF_FLOAT__);
+                    memset(jitterFR_emb,0.0,FR_EMBEDDING_SIZE*__SIZEOF_FLOAT__);
+                    for(int i=0;i<FR_EMBEDDING_SIZE;i++){
+                        jitterFR_emb[i] = data[0][i];
+                    }
+
                     // float sum = 0;
                     // float map[FR_EMBEDDING_SIZE];
                     // memset(map,0.0,FR_EMBEDDING_SIZE*__SIZEOF_FLOAT__);
@@ -274,9 +380,9 @@ NullImplFRVT11::createTemplate(
 
 
 
-                    for(int i=0;i<FR_EMBEDDING_SIZE;i++){
-                        jitterFR_emb[i] = data[0][i];
-                    }
+                    // for(int i=0;i<FR_EMBEDDING_SIZE;i++){
+                    //     jitterFR_emb[i] = embeddingResults[0][i];
+                    // }
             //         memset(gender,0.0,2);
             //         memset(age,0.0,7);
                     // for (int out_c = 0; out_c < network_OutputName.size(); out_c++) {
@@ -356,12 +462,13 @@ NullImplFRVT11::createTemplate(
                 // -----------------------------------------------------------------------------------------------------
             }
             //==test use==
-            if(enrollCount==0){
-                std::cout<<"fv features: {  "<< std::endl;
-                for(int i=0;i<FR_EMBEDDING_SIZE;i++){ std::cout<<fv[i] << std::endl; }
-                std::cout<<"  }" << std::endl;
-            }
-            enrollCount=1;
+            // if(enrollCount==0){
+            //     std::cout<<"fv features: {  "<< std::endl;
+            //     for(int i=0;i<FR_EMBEDDING_SIZE;i++){ std::cout<<fv[i] << std::endl; }
+            //     std::cout<<"  }" << std::endl;
+            // }
+            // enrollCount=1;
+
             // memset(FR_emb,0,__SIZEOF_FLOAT__*FR_EMBEDDING_SIZE);
             // for(int emb = 0; emb < FR_EMBEDDING_SIZE; emb++){
             //     fv.push_back(FR_emb[emb]);
@@ -374,24 +481,25 @@ NullImplFRVT11::createTemplate(
             // std::cout << "FR features size: "<<fv.size()<< " fv[0,1,127,510,511]: " 
             // << "[" << fv[0] << ", " << fv[1] << ", " << fv[127] << ", " << fv[510] << ", " << fv[511] << "] " << std::endl;
             mtx.unlock();
-            // test_matrix1.set_size(FR_EMBEDDING_SIZE);
-            // test_matrix2.set_size(FR_EMBEDDING_SIZE);
-            // for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
-            //     if(enrollCount%2==0){
-            //         test_matrix1(j) = fv[j];
-            //     }else{
-            //         test_matrix2(j) = fv[j];
-            //     }
-            // }
-            // if(enrollCount>0){
-            //     std::cout << "FR features "<< " test_matrix1[0,1,127,510,511]: " 
-            //     << "[" << test_matrix1(0) << ", " << test_matrix1(1) << ", " << test_matrix1(127) << ", " << test_matrix1(510) << ", " << test_matrix1(511) << "] " << std::endl;
-            //     std::cout << "FR features "<< " test_matrix2[0,1,127,510,511]: " 
-            //     << "[" << test_matrix2(0) << ", " << test_matrix2(1) << ", " << test_matrix2(127) << ", " << test_matrix2(510) << ", " << test_matrix2(511) << "] " << std::endl;
-            //     double similarity = 1.00 - (dlib::length(test_matrix1 - test_matrix2));
-            //     std::cout << "FR similarity: ("<< similarity << ")enrollCount: (" << enrollCount << ") " << std::endl;
-            // }
-            // enrollCount++;
+            test_matrix1.set_size(FR_EMBEDDING_SIZE);
+            test_matrix2.set_size(FR_EMBEDDING_SIZE);
+            for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
+                if(enrollCount%2==0){
+                    test_matrix1(j) = fv[j];
+                }else{
+                    test_matrix2(j) = fv[j];
+                }
+            }
+            if(enrollCount>0){
+                std::cout << "FR features "<< " test_matrix1[0,1,127,510,511]: " 
+                << "[" << test_matrix1(0) << ", " << test_matrix1(1) << ", " << test_matrix1(127) << ", " << test_matrix1(510) << ", " << test_matrix1(511) << "] " << std::endl;
+                std::cout << "FR features "<< " test_matrix2[0,1,127,510,511]: " 
+                << "[" << test_matrix2(0) << ", " << test_matrix2(1) << ", " << test_matrix2(127) << ", " << test_matrix2(510) << ", " << test_matrix2(511) << "] " << std::endl;
+                // double similarity = 1.00 - (dlib::length(test_matrix1 - test_matrix2));
+                double similarity = 1.00 - (dlib::length(test_matrix1 - test_matrix2)*0.50 - 0.20);
+                std::cout << "FR similarity: ("<< similarity << ")enrollCount: (" << enrollCount << ") " << std::endl;
+            }
+            enrollCount++;
 
             //deallocate vectors
             std::vector <dlib::matrix<float, 0, 1>>().swap(EnrollDescriptor);
@@ -530,4 +638,10 @@ std::string NullImplFRVT11::ProduceUUID(){
     rand(), rand(), rand());        // Generates a 96-bit Hex number
     std::string outputString = strUuid;
     return outputString;
+}
+
+
+void NullImplFRVT11::Deallocator(void* data, size_t length, void* arg)
+{
+	std::free(data);
 }
