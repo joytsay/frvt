@@ -68,7 +68,8 @@
 #define FR_IMAGE_HEIGHT 224
 #define FR_IMAGE_PADDING 25
 #define FR_EMBEDDING_SIZE 512
-#define FR_JITTER_COUNT 10
+#define FR_JITTER_COUNT 0
+
 
 
 int detectFailCount = 0;
@@ -144,6 +145,9 @@ private:
 	double mean_values[3];
 	double scale_values[3];
     float FR_emb[512];
+    // dlib::matrix<float, 0, 1> test_matrix1;
+    // dlib::matrix<float, 0, 1> test_matrix2;
+    int enrollCount;
     // float gender[2];
     // float age[7];
     // int detectFailCount;
