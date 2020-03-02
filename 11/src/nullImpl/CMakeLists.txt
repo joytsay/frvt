@@ -19,6 +19,7 @@ set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../lib)
 #For the shared library:
 set(lib_dir ${CMAKE_CURRENT_SOURCE_DIR}/../../lib)
 MESSAGE("[DEBUG] lib_dir{${lib_dir}}")
+find_library(opencv_highgui NAMES opencv_highgui PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(opencv_imgcodecs NAMES opencv_imgcodecs PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(opencv_imgproc NAMES opencv_imgproc PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(dlib NAMES dlib PATHS ${lib_dir} NO_DEFAULT_PATH)
@@ -26,9 +27,9 @@ find_library(tf NAMES tensorflow PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(tf_framework NAMES tensorflow_framework PATHS ${lib_dir} NO_DEFAULT_PATH)
 # libtensorflow_framework
 
-MESSAGE("[DEBUG] Libraries: opencv_imgcodecs{${opencv_imgcodecs}} opencv_imgproc{${opencv_imgproc}} dlib{${dlib}} tf{${tf}} tf_framework{${tf_framework}}") 
+MESSAGE("[DEBUG] Libraries: opencv_imgcodecs{${opencv_imgcodecs}} opencv_imgproc{${opencv_imgproc}} dlib{${dlib}} tf{${tf}} tf_framework{${tf_framework} opencv_highgui{${opencv_highgui}} }") 
 
 # Build the shared libraries:
 add_library (frvt_11_geo_000 SHARED ${face_detection_sources})
-target_link_libraries(frvt_11_geo_000 ${dlib} ${tf} ${tf_framework} ${opencv_imgproc} ${opencv_imgcodecs})
+target_link_libraries(frvt_11_geo_000 ${dlib} ${tf} ${tf_framework} ${opencv_imgproc} ${opencv_imgcodecs} ${opencv_highgui})
 
