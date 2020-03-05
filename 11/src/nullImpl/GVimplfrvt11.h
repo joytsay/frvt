@@ -148,6 +148,7 @@ private:
     dlib::matrix<float, 0, 1> test_matrix1;
     dlib::matrix<float, 0, 1> test_matrix2;
     int enrollCount;
+    int faceDetectCount;
     // float gender[2];
     // float age[7];
     // int detectFailCount;

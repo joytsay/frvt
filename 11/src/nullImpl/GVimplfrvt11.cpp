@@ -101,10 +101,11 @@ NullImplFRVT11::createTemplate(
             // For multi detected face
             int maxFaceId = 0;
             int maxRectArea = 0;
-            if(face_det.size() > 0){
+            faceDetectCount = face_det.size();
+            if(faceDetectCount > 0){
                 // cout << "031" << endl;
-                    if(face_det.size() > 1){
-                    for (size_t j = 0; j < face_det.size(); j++) {
+                    if(faceDetectCount > 1){
+                    for (size_t j = 0; j < faceDetectCount; j++) {
                         if(face_det[j].width() * face_det[j].height() >  maxRectArea){
                             maxRectArea = face_det[j].width() * face_det[j].height();
                             maxFaceId = j;
@@ -169,7 +170,7 @@ NullImplFRVT11::createTemplate(
             std::vector<dlib::matrix<float, 0, 1>> SVM_descriptor;
             std::vector<dlib::matrix<dlib::rgb_pixel>> SVM_distrub_color_crops;
             int cropsCount = m_JitterCount;
-            if(face_det.size() > 0){
+            if(faceDetectCount > 0){
                 if(role == TemplateRole::Enrollment_11 || role == TemplateRole::Enrollment_1N){
                     // slog::info << "FR image TemplateRole Enrollment"<< slog::endl;
                     if(m_JitterCount > 0){
@@ -268,7 +269,7 @@ NullImplFRVT11::createTemplate(
                 float normalizeInput = 255.0*0.5;
                 for(int i = 0; i< 224*224*3; i++){
                     // std::cout<<" input_dataPre: "<<input_data[i];
-                    input_data[i]=(input_data[i] - normalizeInput)/normalizeInput;
+                    input_data[i]=float(input_data[i] - normalizeInput)/normalizeInput;
                     // std::cout<<" input_dataPost: "<<input_data[i]<<std::endl;
                 }
 
@@ -293,8 +294,8 @@ NullImplFRVT11::createTemplate(
                 const TF_Code code = tf_utils::RunSession( session, input_ops, input_tensors, out_ops, output_tensors );
                 SCOPE_EXIT{ tf_utils::DeleteSession(session); }; // Auto-delete on scope exit.
                 // get the data:
-                const std::vector<std::vector<float>> data = tf_utils::GetTensorsData<float>( output_tensors );
-                // cout<< "data.size : "<< data.size()<<", data[0].size" << data[0].size()<<endl;
+                const std::vector<std::vector<float>> dataOutputResults = tf_utils::GetTensorsData<float>( output_tensors );
+                // cout<< "dataOutputResults.size : "<< dataOutputResults.size()<<", dataOutputResults[0].size" << dataOutputResults[0].size()<<endl;
 
 
                 // std::vector<TF_Output> 	input_tensors, output_tensors;
@@ -362,7 +363,7 @@ NullImplFRVT11::createTemplate(
             //         infer_request.Infer(); //FR Do inference
                     memset(jitterFR_emb,0.0,FR_EMBEDDING_SIZE*__SIZEOF_FLOAT__);
                     for(int i=0;i<FR_EMBEDDING_SIZE;i++){
-                        jitterFR_emb[i] = data[0][i];
+                        jitterFR_emb[i] = dataOutputResults[0][i];
                     }
 
                     // float sum = 0;
@@ -415,16 +416,19 @@ NullImplFRVT11::createTemplate(
             } //jitter cropsCount
             //     // -----------------------------------------------------------------------------------------------------
                 dlib::matrix<float, 0, 1> temp_mat = mean(mat(SVM_descriptor));
-                std::vector<dlib::matrix<float, 0, 1>> EnrollDescriptor;
-                int normalizeLength = dlib::length(temp_mat) < 1 ? 1 : dlib::length(temp_mat);
+                // std::vector<dlib::matrix<float, 0, 1>> EnrollDescriptor;
+                // cout << "dlib::length(temp_mat): " << dlib::length(temp_mat) << std::endl;
+                // int normalizeLength = dlib::length(temp_mat) < 1 ? 1 : dlib::length(temp_mat);
+                // cout << "normalizeLength: " << normalizeLength << std::endl;
                 // int normalizeLength = dlib::length(temp_mat);
-                EnrollDescriptor.push_back(temp_mat / normalizeLength); //Use jitter image and normalize to length
+                // EnrollDescriptor.push_back(temp_mat / normalizeLength); //Use jitter image and normalize to length
                 memset(FR_emb,0.0,FR_EMBEDDING_SIZE);
                 for (int j = 0; j < FR_EMBEDDING_SIZE; j++)
                 {
-                    FR_emb[j] = EnrollDescriptor[EnrollDescriptor.size() - 1](j, 0);
+                    FR_emb[j] = temp_mat(j, 0);
+                    // FR_emb[j] = EnrollDescriptor[EnrollDescriptor.size() - 1](j, 0);
                 }
-                std::vector <dlib::matrix<float, 0, 1>>().swap(EnrollDescriptor);
+                // std::vector <dlib::matrix<float, 0, 1>>().swap(EnrollDescriptor);
 
                 // std::cout << "FR features[0,1,127,510,511]: " 
                 // << "[" << FR_emb[0] << ", " << FR_emb[1] << ", " << FR_emb[127] << ", " << FR_emb[510] << ", " << FR_emb[511] << "] " << std::endl;
@@ -432,7 +436,7 @@ NullImplFRVT11::createTemplate(
             // } //detected faces vector array
 
             std::vector<float> fv;
-            if(face_det.size() == 0){ //for no FD found give false eyes detected bool and zero coordinates
+            if(faceDetectCount == 0){ //for no FD found give false eyes detected bool and zero coordinates
                 eyeCoordinates.push_back(EyePair(false, false, 0, 0, 0, 0));
                 // saveImgMtx.lock();
                 // std::time_t t = std::time(0);   // get time now
@@ -500,7 +504,7 @@ NullImplFRVT11::createTemplate(
             // enrollCount++;
 
             //deallocate vectors
-            std::vector <dlib::matrix<float, 0, 1>>().swap(EnrollDescriptor);
+            // std::vector <dlib::matrix<float, 0, 1>>().swap(EnrollDescriptor);
             std::vector <dlib::matrix<dlib::rgb_pixel>>().swap(SVM_distrub_color_crops);
             std::vector <dlib::matrix<float, 0, 1>>().swap(SVM_descriptor);
             std::vector <dlib::point>().swap(parts);
@@ -515,8 +519,26 @@ NullImplFRVT11::createTemplate(
         // slog::info << "FR createTemplate executeㄥtime: "<<time_spent<< " sec spent" << slog::endl;
     } catch (const std::exception & ex) {
         std::cerr << ex.what() << std::endl;
+        // return ReturnStatus(ReturnCode::UnknownError);
     }
-    return ReturnStatus(ReturnCode::Success);
+    // if(faceDetectCount < 1){
+        // return ReturnStatus(ReturnCode::FaceDetectionError);
+    // }else{
+        // std::cout << "faceDetectCount: " << faceDetectCount <<std::endl;
+
+        // if(faceDetectCount < 1){
+            // std::cout << "faceDetectCount: " << faceDetectCount << std::endl;
+            //     std::cout << "templ: " << std::endl;
+            // for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
+            //     std::cout << templ[j] << ", ";
+            //     if(j%10==0){
+            //         std::cout << std::endl;
+            //     }
+            // }
+        // }
+
+        return ReturnStatus(ReturnCode::Success);
+    // }
 }
 
 ReturnStatus
@@ -529,19 +551,50 @@ NullImplFRVT11::matchTemplates(
     float *vfeatureVector = (float *)verifTemplate.data();
     dlib::matrix<float, 0, 1> out_matrix;
     dlib::matrix<float, 0, 1> vout_matrix;
+    dlib::matrix<float, 0, 1> zero_matrix;
     out_matrix.set_size(FR_EMBEDDING_SIZE);
     vout_matrix.set_size(FR_EMBEDDING_SIZE);
+    zero_matrix.set_size(FR_EMBEDDING_SIZE);
+
     for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
         out_matrix(j) = featureVector[j];
         vout_matrix(j) = vfeatureVector[j];
+        zero_matrix(j) = 0.0;
     }
-    similarity = 1.00 - (dlib::length(out_matrix - vout_matrix));
+    float confidence = 1.00 - (dlib::length(out_matrix - vout_matrix)*0.50 - 0.20);
+     
+
+    // std::cout << "out_matrix: " << std::endl;
+    // for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
+    //     std::cout << out_matrix(j) << ", ";
+    //     if(j%10==0){
+    //         std::cout << std::endl;
+    //     }
+    // }
+    // std::cout << std::endl << "vout_matrix: " << std::endl;
+    // for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
+    //     std::cout << vout_matrix(j) << ", ";
+    //     if(j%10==0){
+    //         std::cout << std::endl;
+    //     }
+    // }
+    // std::cout << std::endl;
+    // std::cout << "out_matrix length: " << dlib::length(out_matrix - zero_matrix)<<std::endl;
+    // std::cout << "vout_matrix length: " << dlib::length(vout_matrix - zero_matrix)<<std::endl;
+
+    bool featureVectorIsAllZero,vfeatureVectorIsAllZero;
+    if( dlib::length(out_matrix - zero_matrix) == 0.0) { featureVectorIsAllZero = true; }else{ featureVectorIsAllZero = false; }
+    if( dlib::length(vout_matrix - zero_matrix) == 0.0) { vfeatureVectorIsAllZero = true; }else{ vfeatureVectorIsAllZero = false; }
+    if(featureVectorIsAllZero || vfeatureVectorIsAllZero || confidence < 0.0){ confidence = 0.0; }
+    if(confidence > 1.0 ){ confidence = 1.0; }
+    // similarity = 1.00 - (dlib::length(out_matrix - vout_matrix));
     // std::cout << "out_matrix[0,1,127,510,511]: " 
     // << "[" << out_matrix(0) << ", " << out_matrix(1) << ", " << out_matrix(127) << ", " << out_matrix(510) << ", " << out_matrix(511) << "] " << std::endl;
     // std::cout << "vout_matrix[0,1,127,510,511]: " 
     // << "[" << vout_matrix(0) << ", " << vout_matrix(1) << ", " << vout_matrix(127) << ", " << vout_matrix(510) << ", " << vout_matrix(511) << "] " << std::endl;
     // std::cout << "similarity: " << similarity << std::endl;
     // similarity = rand() % 1000 + 1;
+    similarity = confidence;
     return ReturnStatus(ReturnCode::Success);
 }
 
