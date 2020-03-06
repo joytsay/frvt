@@ -35,9 +35,13 @@ NullImplFRVT11::initialize(const std::string &configDir)
 {
 	try {
         enrollCount = 0; 
-        face_input_detector = dlib::get_frontal_face_detector();
-        std::string LandMarkFileName = configDir + "/geo_vision_5_face_landmarks.dat";
-        dlib::deserialize(LandMarkFileName) >> sp_5; //read dlib landmark model
+        //FD
+        face_input_detector = dlib::get_frontal_face_detector(); //ML
+        std::string facedetectCNNFileName = configDir + "/geo_vision_face_detect.dat";
+        dlib::deserialize(facedetectCNNFileName) >> net;  
+        //LM
+        std::string landMarkFileName = configDir + "/geo_vision_5_face_landmarks.dat";
+        dlib::deserialize(landMarkFileName) >> sp_5; //read dlib landmark model
         m_JitterCount = FR_JITTER_COUNT;
         if(!input_image){
             input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
@@ -72,7 +76,7 @@ NullImplFRVT11::createTemplate(
         std::vector<EyePair> &eyeCoordinates)
 {
     try {
-        // clock_t begin = clock();
+        clock_t begin = clock();
         for (unsigned int i=0; i<faces.size(); i++) {
             mtx.lock();
             // cout << "00" << endl;;
@@ -80,7 +84,7 @@ NullImplFRVT11::createTemplate(
             // ----------------------------------------------------------------------------------------------------
             // std::list<Face::Ptr> facesAttributes;
             size_t id = 0;
-            saveImgMtx.lock();
+            // saveImgMtx.lock();
             cv::Mat frame = cv::Mat(faces[i].height, faces[i].width, CV_8UC3);
             cv::Mat showframe;
             // -------------------------------Set input data----------------------------------------------------
@@ -93,15 +97,85 @@ NullImplFRVT11::createTemplate(
             dlib::cv_image<dlib::rgb_pixel> cv_imgFR(frame);
             dlib::matrix<dlib::rgb_pixel> imgFR;
             dlib::assign_image(imgFR, cv_imgFR);
+
+            // int longside = imgFR.nr();
+            // int shortside = imgFR.nc(); //portrait
+            // float xRatio = 0.0;
+            // float yRatio = 0.0;
+            // bool isLandscape = false;
+            // std::vector<dlib::rectangle> face_det;
+            // if(imgFR.nr() <imgFR.nc()){
+            //     longside = imgFR.nc();
+            //     shortside = imgFR.nr();
+            //     isLandscape = true; //landscape
+            // }
+
+            // int resizeLongSide = 640;
+            // int resizeShortSide = 640;
+
+
+            // dlib::matrix<dlib::rgb_pixel> imgFRPortrait(resizeLongSide,resizeShortSide);
+            // dlib::matrix<dlib::rgb_pixel> imgFRLandscape(resizeShortSide,resizeLongSide);
+            // if(isLandscape){
+            //     xRatio = float(imgFR.nc())/float(resizeLongSide);
+            //     yRatio = float(imgFR.nr())/float(resizeShortSide);
+            //     dlib::resize_image(imgFR,imgFRLandscape,dlib::interpolate_bilinear());
+            //     face_det = face_input_detector(imgFRLandscape);
+            // }else{
+            //     xRatio = float(imgFR.nc())/float(resizeShortSide);
+            //     yRatio = float(imgFR.nr())/float(resizeLongSide);
+            //     dlib::resize_image(imgFR,imgFRPortrait,dlib::interpolate_bilinear());
+            //     face_det = face_input_detector(imgFRPortrait);
+            // }
+            // face_det[0].set_bottom(int(face_det[0].bottom()*yRatio));
+            // face_det[0].set_left(int(face_det[0].left()*xRatio));
+            // face_det[0].set_right(int(face_det[0].right()*xRatio));
+            // face_det[0].set_top(int(face_det[0].top()*yRatio));
+
             // string chipFileName = "FDresults/OriImg(" + ProduceUUID() + ").jpg";
             // dlib::save_jpeg(imgFR,chipFileName,100);
-            saveImgMtx.unlock();
-
+            // saveImgMtx.unlock();
+            clock_t beginFD = clock();
             std::vector<dlib::rectangle> face_det = face_input_detector(imgFR);
+            clock_t endFD = clock();
+            double time_spentFD = (double)(endFD - beginFD) / CLOCKS_PER_SEC;
+            std::cout << "[INFO] FD dlib ML executeㄥtime: "<<time_spentFD<< " sec spent" << std::endl;
             // For multi detected face
             int maxFaceId = 0;
             int maxRectArea = 0;
             faceDetectCount = face_det.size();
+            if(faceDetectCount == 0){
+                // dlib::matrix<dlib::rgb_pixel> imgFRPry;
+                // dlib::assign_image(imgFRPry,imgFR);
+                // dlib::pyramid_up(imgFRPry);
+                std::vector<dlib::rectangle> face_det = face_input_detector(imgFR);
+                faceDetectCount = face_det.size();
+                std::cout << "[INFO] dlib::cnnFD used faceDetectCount:" << faceDetectCount<< std::endl;
+                if(faceDetectCount==1){
+                    clock_t beginCnnFD = clock();
+                    const std::vector<dlib::mmod_rect> cnnFD_det = net(imgFR);
+                    clock_t endCnnFD = clock();
+                    double time_spentFD = (double)(endCnnFD - beginCnnFD) / CLOCKS_PER_SEC;
+                    std::cout << "[INFO] FD dlib DL executeㄥtime: "<<time_spentFD<< " sec spent" << std::endl;
+                    std::cout << "[INFO] dlib::face_det pre:[" << cnnFD_det[0].rect.top() << ","<< cnnFD_det[0].rect.left() << ","
+                    << cnnFD_det[0].rect.right() << ","<< cnnFD_det[0].rect.bottom() << "]"<< std::endl;
+                    face_det[0].set_bottom(cnnFD_det[0].rect.top());
+                    face_det[0].set_left(cnnFD_det[0].rect.left());
+                    face_det[0].set_right(cnnFD_det[0].rect.right());
+                    face_det[0].set_top(cnnFD_det[0].rect.bottom());
+                    // face_det[0].set_bottom(int(cnnFD_det[0].rect.top()*xRatio));
+                    // face_det[0].set_left(int(cnnFD_det[0].rect.left()*yRatio));
+                    // face_det[0].set_right(int(cnnFD_det[0].rect.right()*yRatio));
+                    // face_det[0].set_top(int(cnnFD_det[0].rect.bottom()*xRatio));
+                    std::cout << "[INFO] dlib::imgFR size:[" << imgFR.nc()<<","<< imgFR.nr()<<"]"<< std::endl;
+                    // face_det[0].set_bottom(int(face_det[0].bottom()*0.5));
+                    // face_det[0].set_left(int(face_det[0].left()*0.5));
+                    // face_det[0].set_right(int(face_det[0].right()*0.5));
+                    // face_det[0].set_top(int(face_det[0].top()*0.5));
+                    // std::cout << "[INFO] dlib::face_det post:[" << face_det[0].bottom() << ","<< face_det[0].left() << ","
+                    // << face_det[0].right() << ","<< face_det[0].top() << "]"<< std::endl;
+                }
+            }
             if(faceDetectCount > 0){
                 // cout << "031" << endl;
                     if(faceDetectCount > 1){
@@ -140,7 +214,7 @@ NullImplFRVT11::createTemplate(
                 // dlib::matrix<dlib::rgb_pixel> dlib_array2d;
                 // dlib::assign_image(dlib_array2d, cv_temp);
                 // dlib::save_jpeg(dlib_array2d,detectFileName,100);
-                // // cv::imwrite(detectFileName, showframe);
+                // cv::imwrite(detectFileName, showframe);
                 // saveImgMtx.unlock();
                 
                 //-------------------------------Crop face image================================
@@ -291,7 +365,11 @@ NullImplFRVT11::createTemplate(
                 TF_SetConfig(options, config.data(), config.size(), status);
                 TF_Session* session = tf_utils::CreateSession( graph, options, status );
                 // run Session
+                clock_t beginFR = clock();
                 const TF_Code code = tf_utils::RunSession( session, input_ops, input_tensors, out_ops, output_tensors );
+                clock_t endFR = clock();
+                double time_spentFD = (double)(endFR - beginFR) / CLOCKS_PER_SEC;
+                std::cout << "[INFO] FR executeㄥtime: "<<time_spentFD<< " sec spent" << std::endl;
                 SCOPE_EXIT{ tf_utils::DeleteSession(session); }; // Auto-delete on scope exit.
                 // get the data:
                 const std::vector<std::vector<float>> dataOutputResults = tf_utils::GetTensorsData<float>( output_tensors );
@@ -511,12 +589,9 @@ NullImplFRVT11::createTemplate(
             std::vector <dlib::rectangle>().swap(face_det);
 
         } //faces vect`or size array
-
-
-
-        // clock_t end = clock();
-        // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-        // slog::info << "FR createTemplate executeㄥtime: "<<time_spent<< " sec spent" << slog::endl;
+        clock_t end = clock();
+        double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+        std::cout << "[INFO] FR createTemplate executeㄥtime: "<<time_spent<< " sec spent" << std::endl;
     } catch (const std::exception & ex) {
         std::cerr << ex.what() << std::endl;
         // return ReturnStatus(ReturnCode::UnknownError);
