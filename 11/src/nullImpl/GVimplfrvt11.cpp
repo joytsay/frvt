@@ -20,12 +20,13 @@ using namespace FRVT_11;
 NullImplFRVT11::NullImplFRVT11() {}
 
 NullImplFRVT11::~NullImplFRVT11() {
-    if(input_image){
-        delete[] input_image;
-        input_image = NULL;
-    }
+    // if(input_image){
+    //     delete[] input_image;
+    //     input_image = NULL;
+    // }
     //For FD
-    face_input_detector = dlib::get_frontal_face_detector();
+    SCOPE_EXIT{ tf_utils::DeleteGraph(graphFD); }; // Auto-delete on scope exit.
+    // face_input_detector = dlib::get_frontal_face_detector();
     //For FR
     SCOPE_EXIT{ tf_utils::DeleteGraph(graph); }; // Auto-delete on scope exit.
 }
@@ -36,17 +37,27 @@ NullImplFRVT11::initialize(const std::string &configDir)
 	try {
         enrollCount = 0; 
         //FD
-        face_input_detector = dlib::get_frontal_face_detector(); //ML
-        std::string facedetectCNNFileName = configDir + "/geo_vision_face_detect.dat";
-        dlib::deserialize(facedetectCNNFileName) >> net;  
+        std::string FDFileName = configDir + "/mtcnn_1-12.pb";
+        graphFD = tf_utils::LoadGraph(FDFileName.c_str());
+         
+        if (graphFD == nullptr) {
+            std::cout << "[INFO] Can't load FDgraph" << std::endl;
+            return ReturnStatus(ReturnCode::ConfigError);
+        }else{
+            std::cout << "[INFO] Load FDgraph success" << std::endl;
+        }
+        // face_input_detector = dlib::get_frontal_face_detector(); //ML
+        // std::string facedetectCNNFileName = configDir + "/geo_vision_face_detect.dat";
+        // dlib::deserialize(facedetectCNNFileName) >> net;  
         //LM
         std::string landMarkFileName = configDir + "/geo_vision_5_face_landmarks.dat";
         dlib::deserialize(landMarkFileName) >> sp_5; //read dlib landmark model
         m_JitterCount = FR_JITTER_COUNT;
-        if(!input_image){
-            input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
-        }
+        // if(!input_image){
+        //     input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
+        // }
 
+        //FR
         std::string FRFileName = configDir + "/09-02_02-45.pb";
         graph = tf_utils::LoadGraph(FRFileName.c_str());
          
@@ -56,9 +67,6 @@ NullImplFRVT11::initialize(const std::string &configDir)
         }else{
             // std::cout << "[INFO] Load graph success" << std::endl;
         }
-        if(!input_image){
-            input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
-        }	
         mean_values[0]  = mean_values[1]  = mean_values[2]  = 255.0*0.5;
 	    scale_values[0] = scale_values[1] = scale_values[2] = 255.0*0.5;
         // -----------------------------------------------------------------------------------------------------
@@ -88,7 +96,7 @@ NullImplFRVT11::createTemplate(
             cv::Mat frame = cv::Mat(faces[i].height, faces[i].width, CV_8UC3);
             cv::Mat showframe;
             // -------------------------------Set input data----------------------------------------------------
-            // slog::info << "frvt imput image height: " << faces[i].height << ", width: " << faces[i].width << ", size: " << faces[i].size() << slog::endl;
+            std::cout << "frvt imput image height: " << faces[i].height << ", width: " << faces[i].width << ", size: " << faces[i].size() << std::endl;
             std::memcpy(frame.data, faces[i].data.get(), faces[i].size() );  
             frame.copyTo(showframe);
             dlib::matrix<dlib::rgb_pixel> enroll_chip; //original extract chip
@@ -136,46 +144,119 @@ NullImplFRVT11::createTemplate(
             // dlib::save_jpeg(imgFR,chipFileName,100);
             // saveImgMtx.unlock();
             clock_t beginFD = clock();
-            std::vector<dlib::rectangle> face_det = face_input_detector(imgFR);
+                                std::cout<<"001: "<<std::endl;
+            std::vector<dlib::rectangle> face_det;
+
+
+                        std::cout<<"002: "<<std::endl;
+            std::vector<float> input_dataFD;
+            std::vector<float> min_size_dataFD = {40};
+            std::vector<float> threshold_dataFD = {0.6, 0.7, 0.7};
+            std::vector<float> factor_dataFD = {0.709};
+            cv::Mat image32fFD;
+            frame.convertTo( image32fFD, CV_32F );
+                        std::cout<<"003: "<<std::endl;
+            input_dataFD.assign( (float*) image32fFD.data, (float*) image32fFD.data + image32fFD.total() * image32fFD.channels() );
+            std::cout<<"input_dataFD: "<<input_dataFD.size()<<std::endl;
+            // dimensions
+            const std::vector<std::int64_t> input_dimsFD = {image32fFD.rows,image32fFD.cols,3 };
+            const std::vector<std::int64_t> min_size_dimsFD = {1};
+            const std::vector<std::int64_t> thresholds_dimsFD = {3};
+            const std::vector<std::int64_t> factor_dimsFD = {1};
+                        std::cout<<"004: "<<std::endl;
+            // Tensors:
+            const std::vector<TF_Output> input_opsFD = { {TF_GraphOperationByName( graphFD, "input" ), 0},
+                                                    {TF_GraphOperationByName( graphFD, "min_size" ), 0},
+                                                    {TF_GraphOperationByName( graphFD, "thresholds" ), 0},
+                                                    {TF_GraphOperationByName( graphFD, "factor" ), 0} };
+                                                                std::cout<<"005: "<<std::endl;
+            const std::vector<TF_Tensor*> input_tensorsFD = { tf_utils::CreateTensor( TF_FLOAT, input_dimsFD, input_dataFD ),
+                                                            tf_utils::CreateTensor( TF_FLOAT, min_size_dimsFD, min_size_dataFD ),
+                                                            tf_utils::CreateTensor( TF_FLOAT, thresholds_dimsFD, threshold_dataFD ),
+                                                            tf_utils::CreateTensor( TF_FLOAT, factor_dimsFD, factor_dataFD ) };
+                                                                        std::cout<<"006: "<<std::endl;
+            SCOPE_EXIT{ tf_utils::DeleteTensors(input_tensorsFD); }; // Auto-delete on scope exit.
+
+
+            const std::vector<std::int64_t> output_dimsFD = {1}; // batch 2
+            const std::vector<TF_Output> out_opsFD = {{TF_GraphOperationByName(graph, "prob"), 0}};
+            std::vector<TF_Tensor*> output_tensorsFD = {tf_utils::CreateEmptyTensor(TF_FLOAT, output_dimsFD)};
+            SCOPE_EXIT{ tf_utils::DeleteTensors(output_tensorsFD); }; // Auto-delete on scope exit.
+
+            // const std::vector<TF_Output> out_opsFD = { {TF_GraphOperationByName( graphFD, "prob" ), 0},
+            //                                         {TF_GraphOperationByName( graphFD, "landmarks" ), 0},
+            //                                         {TF_GraphOperationByName( graphFD, "box" ), 0} };
+            // std::vector<TF_Tensor*> output_tensorsFD = { nullptr,nullptr,nullptr};
+            // std::vector<TF_Tensor*> output_tensorsFD = { nullptr};
+            // std::vector<TF_Tensor*> output_tensorsFD = {tf_utils::CreateEmptyTensor(TF_FLOAT, output_dims)};
+            // SCOPE_EXIT{ tf_utils::DeleteTensors(output_tensorsFD); }; // Auto-delete on scope exit.
+
+            SCOPE_EXIT{ tf_utils::DeleteTensors(output_tensorsFD); }; // Auto-delete on scope exit.
+            std::cout<<"007: "<<std::endl;
+            // create TF session:
+            TF_Status* statusFD = TF_NewStatus();
+            TF_SessionOptions* optionsFD = TF_NewSessionOptions();
+            std::array<std::uint8_t, 13> configFD = {{ 0x0a ,0x07, 0x0a, 0x03, 0x43, 0x50, 0x55, 0x10, 0x01, 0x10, 0x01, 0x28, 0x01}};
+            TF_SetConfig(optionsFD, configFD.data(), configFD.size(), statusFD);
+            TF_Session* sessionFD = tf_utils::CreateSession( graphFD, optionsFD, statusFD );
+                        std::cout<<"008: "<<std::endl;
+            // run Session
+            const TF_Code codeFD = tf_utils::RunSession( sessionFD, input_opsFD, input_tensorsFD, out_opsFD, output_tensorsFD );
+            if (codeFD == TF_OK) {
+                std::cout<<"codeFD:OK "<<std::endl;
+            }else{
+                std::cout<<"codeFD:Fail "<< codeFD <<std::endl;
+            }
+            SCOPE_EXIT{ tf_utils::DeleteSession(sessionFD); }; // Auto-delete on scope exit.
+            // get the data:const std::vector<std::vector<float>>
+                        std::cout<<"009: "<<std::endl;
+            const std::vector<std::vector<float>> dataOutputResultsFD = tf_utils::GetTensorsData<float>( output_tensorsFD );
+                        std::cout<<"010: "<<std::endl;
+
+            std::cout<<"dataOutputResultsFD: "<<dataOutputResultsFD.size()<<std::endl;
+             std::cout<<"dataOutputResultsFD[0]: "<<dataOutputResultsFD[0].size()<<std::endl;
+            // std::cout<<"dataOutputResultsFD[1]: "<<dataOutputResultsFD[1].size()<<std::endl;
+            // std::cout<<"dataOutputResultsFD[2]: "<<dataOutputResultsFD[2].size()<<std::endl;
             clock_t endFD = clock();
             double time_spentFD = (double)(endFD - beginFD) / CLOCKS_PER_SEC;
-            std::cout << "[INFO] FD dlib ML executeㄥtime: "<<time_spentFD<< " sec spent" << std::endl;
+            std::cout << "[INFO] FD MTCNN executeㄥtime: "<<time_spentFD<< " sec spent" << std::endl;
+            // std::vector<dlib::rectangle> face_det = face_input_detector(imgFR);
             // For multi detected face
             int maxFaceId = 0;
             int maxRectArea = 0;
             faceDetectCount = face_det.size();
-            if(faceDetectCount == 0){
-                // dlib::matrix<dlib::rgb_pixel> imgFRPry;
-                // dlib::assign_image(imgFRPry,imgFR);
-                // dlib::pyramid_up(imgFRPry);
-                std::vector<dlib::rectangle> face_det = face_input_detector(imgFR);
-                faceDetectCount = face_det.size();
-                std::cout << "[INFO] dlib::cnnFD used faceDetectCount:" << faceDetectCount<< std::endl;
-                if(faceDetectCount==1){
-                    clock_t beginCnnFD = clock();
-                    const std::vector<dlib::mmod_rect> cnnFD_det = net(imgFR);
-                    clock_t endCnnFD = clock();
-                    double time_spentFD = (double)(endCnnFD - beginCnnFD) / CLOCKS_PER_SEC;
-                    std::cout << "[INFO] FD dlib DL executeㄥtime: "<<time_spentFD<< " sec spent" << std::endl;
-                    std::cout << "[INFO] dlib::face_det pre:[" << cnnFD_det[0].rect.top() << ","<< cnnFD_det[0].rect.left() << ","
-                    << cnnFD_det[0].rect.right() << ","<< cnnFD_det[0].rect.bottom() << "]"<< std::endl;
-                    face_det[0].set_bottom(cnnFD_det[0].rect.top());
-                    face_det[0].set_left(cnnFD_det[0].rect.left());
-                    face_det[0].set_right(cnnFD_det[0].rect.right());
-                    face_det[0].set_top(cnnFD_det[0].rect.bottom());
-                    // face_det[0].set_bottom(int(cnnFD_det[0].rect.top()*xRatio));
-                    // face_det[0].set_left(int(cnnFD_det[0].rect.left()*yRatio));
-                    // face_det[0].set_right(int(cnnFD_det[0].rect.right()*yRatio));
-                    // face_det[0].set_top(int(cnnFD_det[0].rect.bottom()*xRatio));
-                    std::cout << "[INFO] dlib::imgFR size:[" << imgFR.nc()<<","<< imgFR.nr()<<"]"<< std::endl;
-                    // face_det[0].set_bottom(int(face_det[0].bottom()*0.5));
-                    // face_det[0].set_left(int(face_det[0].left()*0.5));
-                    // face_det[0].set_right(int(face_det[0].right()*0.5));
-                    // face_det[0].set_top(int(face_det[0].top()*0.5));
-                    // std::cout << "[INFO] dlib::face_det post:[" << face_det[0].bottom() << ","<< face_det[0].left() << ","
-                    // << face_det[0].right() << ","<< face_det[0].top() << "]"<< std::endl;
-                }
-            }
+            // if(faceDetectCount == 0){
+            //     // dlib::matrix<dlib::rgb_pixel> imgFRPry;
+            //     // dlib::assign_image(imgFRPry,imgFR);
+            //     // dlib::pyramid_up(imgFRPry);
+            //     std::vector<dlib::rectangle> face_det = face_input_detector(imgFR);
+            //     faceDetectCount = face_det.size();
+            //     std::cout << "[INFO] dlib::cnnFD used faceDetectCount:" << faceDetectCount<< std::endl;
+            //     if(faceDetectCount==1){
+            //         clock_t beginCnnFD = clock();
+            //         const std::vector<dlib::mmod_rect> cnnFD_det = net(imgFR);
+            //         clock_t endCnnFD = clock();
+            //         double time_spentFD = (double)(endCnnFD - beginCnnFD) / CLOCKS_PER_SEC;
+            //         std::cout << "[INFO] FD dlib DL executeㄥtime: "<<time_spentFD<< " sec spent" << std::endl;
+            //         std::cout << "[INFO] dlib::face_det pre:[" << cnnFD_det[0].rect.top() << ","<< cnnFD_det[0].rect.left() << ","
+            //         << cnnFD_det[0].rect.right() << ","<< cnnFD_det[0].rect.bottom() << "]"<< std::endl;
+            //         face_det[0].set_bottom(cnnFD_det[0].rect.top());
+            //         face_det[0].set_left(cnnFD_det[0].rect.left());
+            //         face_det[0].set_right(cnnFD_det[0].rect.right());
+            //         face_det[0].set_top(cnnFD_det[0].rect.bottom());
+            //         // face_det[0].set_bottom(int(cnnFD_det[0].rect.top()*xRatio));
+            //         // face_det[0].set_left(int(cnnFD_det[0].rect.left()*yRatio));
+            //         // face_det[0].set_right(int(cnnFD_det[0].rect.right()*yRatio));
+            //         // face_det[0].set_top(int(cnnFD_det[0].rect.bottom()*xRatio));
+            //         std::cout << "[INFO] dlib::imgFR size:[" << imgFR.nc()<<","<< imgFR.nr()<<"]"<< std::endl;
+            //         // face_det[0].set_bottom(int(face_det[0].bottom()*0.5));
+            //         // face_det[0].set_left(int(face_det[0].left()*0.5));
+            //         // face_det[0].set_right(int(face_det[0].right()*0.5));
+            //         // face_det[0].set_top(int(face_det[0].top()*0.5));
+            //         // std::cout << "[INFO] dlib::face_det post:[" << face_det[0].bottom() << ","<< face_det[0].left() << ","
+            //         // << face_det[0].right() << ","<< face_det[0].top() << "]"<< std::endl;
+            //     }
+            // }
             if(faceDetectCount > 0){
                 // cout << "031" << endl;
                     if(faceDetectCount > 1){
@@ -332,7 +413,7 @@ NullImplFRVT11::createTemplate(
                 // cv::Mat chipMat = dlib::toMat(SVM_distrub_color_crops[i]);
                 cv::Mat chipMat = dlib::toMat(enroll_chipBGR);
                 // cv::imshow("chipMat",chipMat);
-                std::memcpy(input_image, chipMat.data, chipMat.rows * chipMat.cols*3);
+                // std::memcpy(input_image, chipMat.data, chipMat.rows * chipMat.cols*3);
                 // cv::waitKey();
                 std::vector<float> input_data;
 

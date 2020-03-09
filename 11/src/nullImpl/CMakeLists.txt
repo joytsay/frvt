@@ -8,8 +8,8 @@ MESSAGE("[DEBUG] Include headers: CMAKE_CURRENT_SOURCE_DIR{${CMAKE_CURRENT_SOURC
 file(GLOB face_detection_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/*.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/dnn/*.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/dnn/*.cpp
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/dnn/*.h
+    # ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/dnn/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/*.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/*.cpp
     GVimplfrvt11.cpp
