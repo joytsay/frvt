@@ -37,10 +37,9 @@ NullImplFRVT11::initialize(const std::string &configDir)
 	try {
         enrollCount = 0; 
         //FD
-        std::string FDFileName = configDir + "/mtcnn_1-12.pb";
-        graphFD = tf_utils::LoadGraph(FDFileName.c_str());
-         
-        if (graphFD == nullptr) {
+        std::string FDFileName = configDir + "/mtcnn_frozen_model.pb";
+        sessionFD=load_graph(FDFileName.c_str(),&graphFD);
+        if (sessionFD == nullptr) {
             std::cout << "[INFO] Can't load FDgraph" << std::endl;
             return ReturnStatus(ReturnCode::ConfigError);
         }else{
@@ -50,8 +49,8 @@ NullImplFRVT11::initialize(const std::string &configDir)
         // std::string facedetectCNNFileName = configDir + "/geo_vision_face_detect.dat";
         // dlib::deserialize(facedetectCNNFileName) >> net;  
         //LM
-        std::string landMarkFileName = configDir + "/geo_vision_5_face_landmarks.dat";
-        dlib::deserialize(landMarkFileName) >> sp_5; //read dlib landmark model
+        // std::string landMarkFileName = configDir + "/geo_vision_5_face_landmarks.dat";
+        // dlib::deserialize(landMarkFileName) >> sp_5; //read dlib landmark model
         m_JitterCount = FR_JITTER_COUNT;
         // if(!input_image){
         //     input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
@@ -144,79 +143,49 @@ NullImplFRVT11::createTemplate(
             // dlib::save_jpeg(imgFR,chipFileName,100);
             // saveImgMtx.unlock();
             clock_t beginFD = clock();
-                                std::cout<<"001: "<<std::endl;
+            std::cout<<"001: "<<std::endl;
             std::vector<dlib::rectangle> face_det;
-
-
-                        std::cout<<"002: "<<std::endl;
-            std::vector<float> input_dataFD;
-            std::vector<float> min_size_dataFD = {40};
-            std::vector<float> threshold_dataFD = {0.6, 0.7, 0.7};
-            std::vector<float> factor_dataFD = {0.709};
-            cv::Mat image32fFD;
-            frame.convertTo( image32fFD, CV_32F );
+            std::cout<<"002: "<<std::endl;
+            std::vector<face_box> face_info;
                         std::cout<<"003: "<<std::endl;
-            input_dataFD.assign( (float*) image32fFD.data, (float*) image32fFD.data + image32fFD.total() * image32fFD.channels() );
-            std::cout<<"input_dataFD: "<<input_dataFD.size()<<std::endl;
-            // dimensions
-            const std::vector<std::int64_t> input_dimsFD = {image32fFD.rows,image32fFD.cols,3 };
-            const std::vector<std::int64_t> min_size_dimsFD = {1};
-            const std::vector<std::int64_t> thresholds_dimsFD = {3};
-            const std::vector<std::int64_t> factor_dimsFD = {1};
+            mtcnn_detect(sessionFD,graphFD,frame,face_info);
                         std::cout<<"004: "<<std::endl;
-            // Tensors:
-            const std::vector<TF_Output> input_opsFD = { {TF_GraphOperationByName( graphFD, "input" ), 0},
-                                                    {TF_GraphOperationByName( graphFD, "min_size" ), 0},
-                                                    {TF_GraphOperationByName( graphFD, "thresholds" ), 0},
-                                                    {TF_GraphOperationByName( graphFD, "factor" ), 0} };
-                                                                std::cout<<"005: "<<std::endl;
-            const std::vector<TF_Tensor*> input_tensorsFD = { tf_utils::CreateTensor( TF_FLOAT, input_dimsFD, input_dataFD ),
-                                                            tf_utils::CreateTensor( TF_FLOAT, min_size_dimsFD, min_size_dataFD ),
-                                                            tf_utils::CreateTensor( TF_FLOAT, thresholds_dimsFD, threshold_dataFD ),
-                                                            tf_utils::CreateTensor( TF_FLOAT, factor_dimsFD, factor_dataFD ) };
-                                                                        std::cout<<"006: "<<std::endl;
-            SCOPE_EXIT{ tf_utils::DeleteTensors(input_tensorsFD); }; // Auto-delete on scope exit.
+            for(unsigned int i=0;i<face_info.size();i++)
+            {
+                face_box& box=face_info[i];
+            std::cout<<"005: "<<std::endl;
+                printf("face %d: x0,y0 %2.5f %2.5f  x1,y1 %2.5f  %2.5f conf: %2.5f\n",i,
+                        box.x0,box.y0,box.x1,box.y1, box.score);
+                printf("landmark: ");
+            std::cout<<"006: "<<std::endl;
+                for(unsigned int j=0;j<5;j++)
+                    printf(" (%2.5f %2.5f)",box.landmark.x[j], box.landmark.y[j]);
 
-
-            const std::vector<std::int64_t> output_dimsFD = {1}; // batch 2
-            const std::vector<TF_Output> out_opsFD = {{TF_GraphOperationByName(graph, "prob"), 0}};
-            std::vector<TF_Tensor*> output_tensorsFD = {tf_utils::CreateEmptyTensor(TF_FLOAT, output_dimsFD)};
-            SCOPE_EXIT{ tf_utils::DeleteTensors(output_tensorsFD); }; // Auto-delete on scope exit.
-
-            // const std::vector<TF_Output> out_opsFD = { {TF_GraphOperationByName( graphFD, "prob" ), 0},
-            //                                         {TF_GraphOperationByName( graphFD, "landmarks" ), 0},
-            //                                         {TF_GraphOperationByName( graphFD, "box" ), 0} };
-            // std::vector<TF_Tensor*> output_tensorsFD = { nullptr,nullptr,nullptr};
-            // std::vector<TF_Tensor*> output_tensorsFD = { nullptr};
-            // std::vector<TF_Tensor*> output_tensorsFD = {tf_utils::CreateEmptyTensor(TF_FLOAT, output_dims)};
-            // SCOPE_EXIT{ tf_utils::DeleteTensors(output_tensorsFD); }; // Auto-delete on scope exit.
-
-            SCOPE_EXIT{ tf_utils::DeleteTensors(output_tensorsFD); }; // Auto-delete on scope exit.
+                printf("\n");
             std::cout<<"007: "<<std::endl;
-            // create TF session:
-            TF_Status* statusFD = TF_NewStatus();
-            TF_SessionOptions* optionsFD = TF_NewSessionOptions();
-            std::array<std::uint8_t, 13> configFD = {{ 0x0a ,0x07, 0x0a, 0x03, 0x43, 0x50, 0x55, 0x10, 0x01, 0x10, 0x01, 0x28, 0x01}};
-            TF_SetConfig(optionsFD, configFD.data(), configFD.size(), statusFD);
-            TF_Session* sessionFD = tf_utils::CreateSession( graphFD, optionsFD, statusFD );
-                        std::cout<<"008: "<<std::endl;
-            // run Session
-            const TF_Code codeFD = tf_utils::RunSession( sessionFD, input_opsFD, input_tensorsFD, out_opsFD, output_tensorsFD );
-            if (codeFD == TF_OK) {
-                std::cout<<"codeFD:OK "<<std::endl;
-            }else{
-                std::cout<<"codeFD:Fail "<< codeFD <<std::endl;
-            }
-            SCOPE_EXIT{ tf_utils::DeleteSession(sessionFD); }; // Auto-delete on scope exit.
-            // get the data:const std::vector<std::vector<float>>
-                        std::cout<<"009: "<<std::endl;
-            const std::vector<std::vector<float>> dataOutputResultsFD = tf_utils::GetTensorsData<float>( output_tensorsFD );
-                        std::cout<<"010: "<<std::endl;
+            std::cout<<"008: "<<std::endl;
+                /*draw box */
 
-            std::cout<<"dataOutputResultsFD: "<<dataOutputResultsFD.size()<<std::endl;
-             std::cout<<"dataOutputResultsFD[0]: "<<dataOutputResultsFD[0].size()<<std::endl;
-            // std::cout<<"dataOutputResultsFD[1]: "<<dataOutputResultsFD[1].size()<<std::endl;
-            // std::cout<<"dataOutputResultsFD[2]: "<<dataOutputResultsFD[2].size()<<std::endl;
+                cv::rectangle(showframe, cv::Point(box.x0, box.y0), cv::Point(box.x1, box.y1), cv::Scalar(0, 255, 0), 1);
+            std::cout<<"009: "<<std::endl;
+
+                /* draw landmark */
+            std::cout<<"010: "<<std::endl;
+                for(int l=0;l<5;l++)
+                {
+                    cv::circle(showframe,cv::Point(box.landmark.x[l],box.landmark.y[l]),1,cv::Scalar(0, 0, 255),2);
+
+                }
+            }
+                saveImgMtx.lock();
+                string detectFileName = "FDresults/face(" + ProduceUUID() + ").jpg";
+                dlib::cv_image<dlib::rgb_pixel> cv_temp(showframe);
+                dlib::matrix<dlib::rgb_pixel> dlib_array2d;
+                dlib::assign_image(dlib_array2d, cv_temp);
+                dlib::save_jpeg(dlib_array2d,detectFileName,100);
+                saveImgMtx.unlock();
+            std::cout<<"011: "<<std::endl;
+
             clock_t endFD = clock();
             double time_spentFD = (double)(endFD - beginFD) / CLOCKS_PER_SEC;
             std::cout << "[INFO] FD MTCNN executeㄥtime: "<<time_spentFD<< " sec spent" << std::endl;

@@ -12,6 +12,17 @@
 #define NULLIMPLFRVT11_H_
 
 #include "frvt11.h"
+#include <fstream>
+#include <utility>
+#include <vector>
+
+#include "tensorflow/c/c_api.h"
+#include "tensorflow_mtcnn.hpp"
+#include "mtcnn.hpp"
+#include "comm_lib.hpp"
+#include "utils.hpp"
+#include <unistd.h>
+
 #include <time.h>
 #include <fstream>
 #include <iomanip>
@@ -140,6 +151,7 @@ private:
     dlib::frontal_face_detector face_input_detector;
     dlib::shape_predictor sp_5;
     TF_Graph *graphFD;
+    TF_Session *sessionFD;
     // net_type net;
     //===============================================//
 

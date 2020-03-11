@@ -11,6 +11,7 @@ file(GLOB face_detection_sources
     # ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/dnn/*.h
     # ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/dlib/dnn/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/*.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/*.h
     ${CMAKE_CURRENT_SOURCE_DIR}/../../../common/src/include/*.cpp
     GVimplfrvt11.cpp
 )

@@ -60,7 +60,11 @@
 			"future": "cpp",
 			"forward_list": "cpp",
 			"typeindex": "cpp",
-			"random": "cpp"
+			"random": "cpp",
+			"cstddef": "cpp",
+			"strstream": "cpp",
+			"bitset": "cpp",
+			"cfenv": "cpp"
 		}
 	}
 }
