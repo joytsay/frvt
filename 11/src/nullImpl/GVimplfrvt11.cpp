@@ -37,14 +37,14 @@ NullImplFRVT11::initialize(const std::string &configDir)
 	try {
         enrollCount = 0; 
         //FD
-        std::string FDFileName = configDir + "/mtcnn_frozen_model.pb";
-        sessionFD=load_graph(FDFileName.c_str(),&graphFD);
-        if (sessionFD == nullptr) {
-            std::cout << "[INFO] Can't load FDgraph" << std::endl;
-            return ReturnStatus(ReturnCode::ConfigError);
-        }else{
-            std::cout << "[INFO] Load FDgraph success" << std::endl;
-        }
+        // std::string FDFileName = configDir + "/mtcnn_frozen_model.pb";
+        // sessionFD=load_graph(FDFileName.c_str(),&graphFD);
+        // if (sessionFD == nullptr) {
+        //     std::cout << "[INFO] Can't load FDgraph" << std::endl;
+        //     return ReturnStatus(ReturnCode::ConfigError);
+        // }else{
+        //     std::cout << "[INFO] Load FDgraph success" << std::endl;
+        // }
         // face_input_detector = dlib::get_frontal_face_detector(); //ML
         // std::string facedetectCNNFileName = configDir + "/geo_vision_face_detect.dat";
         // dlib::deserialize(facedetectCNNFileName) >> net;  
@@ -96,7 +96,10 @@ NullImplFRVT11::createTemplate(
             cv::Mat showframe;
             // -------------------------------Set input data----------------------------------------------------
             std::cout << "frvt imput image height: " << faces[i].height << ", width: " << faces[i].width << ", size: " << faces[i].size() << std::endl;
+            
             std::memcpy(frame.data, faces[i].data.get(), faces[i].size() );  
+
+
             frame.copyTo(showframe);
             dlib::matrix<dlib::rgb_pixel> enroll_chip; //original extract chip
             dlib::matrix<dlib::bgr_pixel> enroll_chipBGR; //original extract chip
@@ -104,6 +107,14 @@ NullImplFRVT11::createTemplate(
             dlib::cv_image<dlib::rgb_pixel> cv_imgFR(frame);
             dlib::matrix<dlib::rgb_pixel> imgFR;
             dlib::assign_image(imgFR, cv_imgFR);
+
+                // saveImgMtx.lock();
+                // string detectFileName = "test.jpg";
+                // dlib::cv_image<dlib::rgb_pixel> cv_temp(frame);
+                // dlib::matrix<dlib::rgb_pixel> dlib_array2d;
+                // dlib::assign_image(dlib_array2d, cv_temp);
+                // dlib::save_jpeg(dlib_array2d,detectFileName,100);
+                // saveImgMtx.unlock();
 
             // int longside = imgFR.nr();
             // int shortside = imgFR.nc(); //portrait
@@ -146,44 +157,64 @@ NullImplFRVT11::createTemplate(
             std::cout<<"001: "<<std::endl;
             std::vector<dlib::rectangle> face_det;
             std::cout<<"002: "<<std::endl;
-            std::vector<face_box> face_info;
-                        std::cout<<"003: "<<std::endl;
-            mtcnn_detect(sessionFD,graphFD,frame,face_info);
-                        std::cout<<"004: "<<std::endl;
-            for(unsigned int i=0;i<face_info.size();i++)
+            int * pResults = NULL; 
+            //pBuffer is used in the detection functions.
+            //If you call functions in multiple threads, please create one buffer for each thread!
+            unsigned char * pBuffer = (unsigned char *)malloc(DETECT_BUFFER_SIZE);
+           
+
+            ///////////////////////////////////////////
+            // CNN face detection 
+            // Best detection rate
+            //////////////////////////////////////////
+            //!!! The input image must be a BGR one (three-channel) instead of RGB
+            //!!! DO NOT RELEASE pResults !!!
+
+            pResults = facedetect_cnn(pBuffer, (unsigned char*)(frame.ptr(0)), frame.cols, frame.rows, (int)frame.step);
+            int facesDetected = pResults ? *pResults : 0;
+            cv::Mat result_image = frame.clone();
+            //print the detection results
+            for(int i = 0; i < (pResults ? *pResults : 0); i++)
             {
-                face_box& box=face_info[i];
-            std::cout<<"005: "<<std::endl;
-                printf("face %d: x0,y0 %2.5f %2.5f  x1,y1 %2.5f  %2.5f conf: %2.5f\n",i,
-                        box.x0,box.y0,box.x1,box.y1, box.score);
-                printf("landmark: ");
-            std::cout<<"006: "<<std::endl;
-                for(unsigned int j=0;j<5;j++)
-                    printf(" (%2.5f %2.5f)",box.landmark.x[j], box.landmark.y[j]);
+                short * p = ((short*)(pResults+1))+142*i;
+                int confidence = p[0];
+                int x = p[1];
+                int y = p[2];
+                int w = p[3];
+                int h = p[4];
+                
+                //show the score of the face. Its range is [0-100]
+                char sScore[256];
+                snprintf(sScore, 256, "%d", confidence);
+                cv::putText(result_image, sScore, cv::Point(x, y-3), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                //draw face rectangle
+                rectangle(result_image, cv::Rect(x, y, w, h), cv::Scalar(0, 255, 0), 2);
+                //draw five face landmarks in different colors
+                cv::circle(result_image, cv::Point(p[5], p[5 + 1]), 1, cv::Scalar(255, 0, 0), 2);
+                cv::circle(result_image, cv::Point(p[5 + 2], p[5 + 3]), 1, cv::Scalar(0, 0, 255), 2);
+                cv::circle(result_image, cv::Point(p[5 + 4], p[5 + 5]), 1, cv::Scalar(0, 255, 0), 2);
+                cv::circle(result_image, cv::Point(p[5 + 6], p[5 + 7]), 1, cv::Scalar(255, 0, 255), 2);
+                cv::circle(result_image, cv::Point(p[5 + 8], p[5 + 9]), 1, cv::Scalar(0, 255, 255), 2);
+                
+                //print the result
+                // printf("face %d: confidence=%d, [%d, %d, %d, %d] (%d,%d) (%d,%d) (%d,%d) (%d,%d) (%d,%d)\n", 
+                //         i, confidence, x, y, w, h, 
+                //         p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13],p[14]);
 
-                printf("\n");
-            std::cout<<"007: "<<std::endl;
-            std::cout<<"008: "<<std::endl;
-                /*draw box */
-
-                cv::rectangle(showframe, cv::Point(box.x0, box.y0), cv::Point(box.x1, box.y1), cv::Scalar(0, 255, 0), 1);
-            std::cout<<"009: "<<std::endl;
-
-                /* draw landmark */
-            std::cout<<"010: "<<std::endl;
-                for(int l=0;l<5;l++)
-                {
-                    cv::circle(showframe,cv::Point(box.landmark.x[l],box.landmark.y[l]),1,cv::Scalar(0, 0, 255),2);
-
-                }
-            }
                 saveImgMtx.lock();
                 string detectFileName = "FDresults/face(" + ProduceUUID() + ").jpg";
-                dlib::cv_image<dlib::rgb_pixel> cv_temp(showframe);
+                dlib::cv_image<dlib::rgb_pixel> cv_temp(result_image);
                 dlib::matrix<dlib::rgb_pixel> dlib_array2d;
                 dlib::assign_image(dlib_array2d, cv_temp);
                 dlib::save_jpeg(dlib_array2d,detectFileName,100);
                 saveImgMtx.unlock();
+
+            }
+
+
+            //release the buffer
+            free(pBuffer);
+
             std::cout<<"011: "<<std::endl;
 
             clock_t endFD = clock();

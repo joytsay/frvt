@@ -28,9 +28,10 @@ find_library(opencv_imgproc NAMES opencv_imgproc PATHS ${lib_dir} NO_DEFAULT_PAT
 find_library(dlib NAMES dlib PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(tf NAMES tensorflow PATHS ${lib_dir} NO_DEFAULT_PATH)
 find_library(tf_framework NAMES tensorflow_framework PATHS ${lib_dir} NO_DEFAULT_PATH)
+find_library(facedetection NAMES facedetection PATHS ${lib_dir} NO_DEFAULT_PATH)
 # libtensorflow_framework
 
-MESSAGE("[DEBUG] Libraries: opencv_imgcodecs{${opencv_imgcodecs}} opencv_imgproc{${opencv_imgproc}} dlib{${dlib}} tf{${tf}} tf_framework{${tf_framework}}") 
+MESSAGE("[DEBUG] Libraries: opencv_imgcodecs{${opencv_imgcodecs}} opencv_imgproc{${opencv_imgproc}} dlib{${dlib}} tf{${tf}} tf_framework{${tf_framework} facedetection{${facedetection}}") 
 
 # Build the shared libraries:
 add_library (frvt_11_geo_000 SHARED ${face_detection_sources})

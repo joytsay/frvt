@@ -11,6 +11,170 @@
 #include "utils.hpp"
 #include "tensorflow_mtcnn.hpp"
 
+#include "tf_utils.hpp"
+#define DLIB_JPEG_SUPPORT
+#include <dlib/image_processing/render_face_detections.h>
+#include <dlib/image_processing.h>
+#include <dlib/geometry/rectangle.h>
+#include <dlib/pixel.h>
+#include <dlib/geometry/vector.h>
+#include <dlib/pixel.h>
+#include <dlib/opencv/to_open_cv.h>
+#include <dlib/matrix/matrix.h>
+#include <dlib/image_transforms/interpolation.h>
+#include <dlib/image_transforms.h>
+#include <dlib/opencv.h>
+#include <dlib/image_processing/full_object_detection.h>
+#include <dlib/image_transforms.h>
+#include <dlib/image_processing/frontal_face_detector.h>
+#include <dlib/image_saver/save_jpeg.h>
+
+std::mutex save_ImgMtx;
+
+void PrintOpInputs(TF_Graph*, TF_Operation* op) {
+  auto num_inputs = TF_OperationNumInputs(op);
+
+  std::cout << "Number inputs: " << num_inputs << std::endl;
+
+  for (auto i = 0; i < num_inputs; ++i) {
+    auto input = TF_Input{op, i};
+    auto type = TF_OperationInputType(input);
+    std::cout << std::to_string(i) << " type : " << tf_utils::DataTypeToString(type) << std::endl;
+  }
+}
+
+void PrintOpOutputs(TF_Graph* graph, TF_Operation* op, TF_Status* status) {
+  auto num_outputs = TF_OperationNumOutputs(op);
+
+  std::cout << "Number outputs: " << num_outputs << std::endl;
+
+  for (auto i = 0; i < num_outputs; ++i) {
+    auto output = TF_Output{op, i};
+    auto type = TF_OperationOutputType(output);
+    std::cout << std::to_string(i) << " type : " << tf_utils::DataTypeToString(type);
+
+    auto num_dims = TF_GraphGetTensorNumDims(graph, output, status);
+
+    if (TF_GetCode(status) != TF_OK) {
+      std::cout << "Can't get tensor dimensionality" << std::endl;
+      continue;
+    }
+
+    std::cout << " dims: " << num_dims;
+
+    if (num_dims <= 0) {
+      std::cout << " []" << std::endl;;
+      continue;
+    }
+
+    std::vector<std::int64_t> dims(num_dims);
+    TF_GraphGetTensorShape(graph, output, dims.data(), num_dims, status);
+
+    if (TF_GetCode(status) != TF_OK) {
+      std::cout << "Can't get get tensor shape" << std::endl;
+      continue;
+    }
+
+    std::cout << " [";
+    for (auto j = 0; j < num_dims; ++j) {
+      std::cout << dims[j];
+      if (j < num_dims - 1) {
+        std::cout << ",";
+      }
+    }
+    std::cout << "]" << std::endl;
+  }
+}
+
+void PrintOps(TF_Graph* graph, TF_Status* status) {
+  TF_Operation* op;
+  std::size_t pos = 0;
+
+  while ((op = TF_GraphNextOperation(graph, &pos)) != nullptr) {
+    auto name = TF_OperationName(op);
+    auto type = TF_OperationOpType(op);
+    auto device = TF_OperationDevice(op);
+
+    auto num_outputs = TF_OperationNumOutputs(op);
+    auto num_inputs = TF_OperationNumInputs(op);
+
+    std::cout << pos << ": " << name << " type: " << type << " device: " << device << " number inputs: " << num_inputs << " number outputs: " << num_outputs << std::endl;
+
+    PrintOpInputs(graph, op);
+    PrintOpOutputs(graph, op, status);
+    std::cout << std::endl;
+  }
+}
+
+void PrintInputs(TF_Graph*, TF_Operation* op) {
+  auto num_inputs = TF_OperationNumInputs(op);
+
+  for (auto i = 0; i < num_inputs; ++i) {
+    auto input = TF_Input{op, i};
+    auto type = TF_OperationInputType(input);
+    std::cout << "Input: " << i << " type: " << tf_utils::DataTypeToString(type) << std::endl;
+  }
+}
+
+void PrintOutputs(TF_Graph* graph, TF_Operation* op, TF_Status* status) {
+  auto num_outputs = TF_OperationNumOutputs(op);
+
+  for (int i = 0; i < num_outputs; ++i) {
+    auto output = TF_Output{op, i};
+    auto type = TF_OperationOutputType(output);
+    auto num_dims = TF_GraphGetTensorNumDims(graph, output, status);
+
+    if (TF_GetCode(status) != TF_OK) {
+      std::cout << "Can't get tensor dimensionality" << std::endl;
+      continue;
+    }
+
+    std::cout << " dims: " << num_dims;
+
+    if (num_dims <= 0) {
+      std::cout << " []" << std::endl;;
+      continue;
+    }
+
+    std::vector<std::int64_t> dims(num_dims);
+
+    std::cout << "Output: " << i << " type: " << tf_utils::DataTypeToString(type);
+    TF_GraphGetTensorShape(graph, output, dims.data(), num_dims, status);
+
+    if (TF_GetCode(status) != TF_OK) {
+      std::cout << "Can't get get tensor shape" << std::endl;
+      continue;
+    }
+
+    std::cout << " [";
+    for (auto d = 0; d < num_dims; ++d) {
+      std::cout << dims[d];
+      if (d < num_dims - 1) {
+        std::cout << ", ";
+      }
+    }
+    std::cout << "]" << std::endl;
+  }
+}
+
+void PrintTensorInfo(TF_Graph* graph, const char* layer_name, TF_Status* status) {
+  std::cout << "Tensor: " << layer_name;
+  auto op = TF_GraphOperationByName(graph, layer_name);
+
+  if (op == nullptr) {
+    std::cout << "Could not get " << layer_name << std::endl;
+    return;
+  }
+
+  auto num_inputs = TF_OperationNumInputs(op);
+  auto num_outputs = TF_OperationNumOutputs(op);
+  std::cout << " inputs: " << num_inputs << " outputs: " << num_outputs << std::endl;
+
+  PrintInputs(graph, op);
+
+  PrintOutputs(graph, op, status);
+}
+
 static int load_file(const std::string & fname, std::vector<char>& buf)
 {
 	std::ifstream fs(fname, std::ios::binary | std::ios::in);
@@ -129,6 +293,11 @@ static void dummy_deallocator(void* data, size_t len, void* arg)
 
 void run_PNet(TF_Session * sess, TF_Graph * graph, cv::Mat& img, scale_window& win, std::vector<face_box>& box_list)
 {
+	auto status = TF_NewStatus();
+
+	// PrintOps(graph, status);
+
+
 	cv::Mat  resized;
 	int scale_h=win.h;
 	int scale_w=win.w;
@@ -146,6 +315,10 @@ void run_PNet(TF_Session * sess, TF_Graph * graph, cv::Mat& img, scale_window& w
 
 	TF_Operation* input_name=TF_GraphOperationByName(graph, "pnet/input");
 
+	// PrintTensorInfo(graph, "pnet/input", status);
+  	// std::cout << std::endl;
+
+
 	input_names.push_back({input_name, 0});
 
 	const int64_t dim[4] = {1,scale_h,scale_w,3};
@@ -159,9 +332,17 @@ void run_PNet(TF_Session * sess, TF_Graph * graph, cv::Mat& img, scale_window& w
 	std::vector<TF_Output> output_names;
 
 	TF_Operation* output_name = TF_GraphOperationByName(graph,"pnet/conv4-2/BiasAdd");
+
+	// PrintTensorInfo(graph, "pnet/conv4-2/BiasAdd", status);
+  	// std::cout << std::endl;
+
 	output_names.push_back({output_name,0});
 
 	output_name = TF_GraphOperationByName(graph,"pnet/prob1");
+
+	PrintTensorInfo(graph, "pnet/prob1", status);
+  	std::cout << std::endl;
+
 	output_names.push_back({output_name,0});
 
 	std::vector<TF_Tensor*> output_values(output_names.size(), nullptr);
@@ -471,7 +652,13 @@ void mtcnn_detect(TF_Session * sess, TF_Graph * graph, cv::Mat& img, std::vector
 	int img_h=working_img.rows;
 	int img_w=working_img.cols;
 
-
+                save_ImgMtx.lock();
+                std::string detectFileName = "test.jpg";
+                dlib::cv_image<dlib::rgb_pixel> cv_temp(img);
+                dlib::matrix<dlib::rgb_pixel> dlib_array2d;
+                dlib::assign_image(dlib_array2d, cv_temp);
+                dlib::save_jpeg(dlib_array2d,detectFileName,100);
+                save_ImgMtx.unlock();
 	int min_size=40;
 	float factor=0.709;
 
@@ -484,6 +671,8 @@ void mtcnn_detect(TF_Session * sess, TF_Graph * graph, cv::Mat& img, std::vector
 
 
 	cal_pyramid_list(img_h,img_w,min_size,factor,win_list);
+
+	
 
 	for(unsigned int i=0;i<win_list.size();i++)
 	{

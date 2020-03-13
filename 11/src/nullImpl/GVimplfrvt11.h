@@ -17,11 +17,11 @@
 #include <vector>
 
 #include "tensorflow/c/c_api.h"
-#include "tensorflow_mtcnn.hpp"
-#include "mtcnn.hpp"
-#include "comm_lib.hpp"
-#include "utils.hpp"
-#include <unistd.h>
+// #include "tensorflow_mtcnn.hpp"
+// #include "mtcnn.hpp"
+// #include "comm_lib.hpp"
+// #include "utils.hpp"
+// #include <unistd.h>
 
 #include <time.h>
 #include <fstream>
@@ -36,7 +36,7 @@
 #include <mutex>
 #include <iostream>
 #include <ctime>    
-
+#include <stdio.h>
 // #include <inference_engine.hpp>
 
 //  #include <samples/ocv_common.hpp>
@@ -51,6 +51,8 @@
 // #define TBB_PREVIEW_GLOBAL_CONTROL 1
 // #include <tbb/global_control.h>
 #include <opencv2/opencv.hpp>
+#include "facedetectcnn.h"
+// #include "opencv2/highgui.hpp"
 // #include <opencv2/imgcodecs.hpp>
 
 
@@ -81,6 +83,7 @@
 #define FR_IMAGE_PADDING 25
 #define FR_EMBEDDING_SIZE 512
 #define FR_JITTER_COUNT 0
+#define DETECT_BUFFER_SIZE 0x20000
 // ----------------------------------------------------------------------------------------
 
 // template <long num_filters, typename SUBNET> using con5d = dlib::con<num_filters,5,5,2,2,SUBNET>;
