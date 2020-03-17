@@ -152,6 +152,7 @@ private:
 
     //====================For FD====================//
     dlib::frontal_face_detector face_input_detector;
+    unsigned char * pBuffer;
     dlib::shape_predictor sp_5;
     TF_Graph *graphFD;
     TF_Session *sessionFD;

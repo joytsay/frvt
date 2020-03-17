@@ -25,6 +25,8 @@ NullImplFRVT11::~NullImplFRVT11() {
     //     input_image = NULL;
     // }
     //For FD
+    //release the buffer
+    free(pBuffer);
     SCOPE_EXIT{ tf_utils::DeleteGraph(graphFD); }; // Auto-delete on scope exit.
     // face_input_detector = dlib::get_frontal_face_detector();
     //For FR
@@ -37,6 +39,9 @@ NullImplFRVT11::initialize(const std::string &configDir)
 	try {
         enrollCount = 0; 
         //FD
+        //pBuffer is used in the detection functions.
+        //If you call functions in multiple threads, please create one buffer for each thread!
+        pBuffer = (unsigned char *)malloc(DETECT_BUFFER_SIZE);
         // std::string FDFileName = configDir + "/mtcnn_frozen_model.pb";
         // sessionFD=load_graph(FDFileName.c_str(),&graphFD);
         // if (sessionFD == nullptr) {
@@ -116,35 +121,35 @@ NullImplFRVT11::createTemplate(
                 // dlib::save_jpeg(dlib_array2d,detectFileName,100);
                 // saveImgMtx.unlock();
 
-            // int longside = imgFR.nr();
-            // int shortside = imgFR.nc(); //portrait
-            // float xRatio = 0.0;
-            // float yRatio = 0.0;
-            // bool isLandscape = false;
-            // std::vector<dlib::rectangle> face_det;
-            // if(imgFR.nr() <imgFR.nc()){
-            //     longside = imgFR.nc();
-            //     shortside = imgFR.nr();
-            //     isLandscape = true; //landscape
-            // }
+            int longside = imgFR.nr();
+            int shortside = imgFR.nc(); //portrait
+            float xRatio = 0.0;
+            float yRatio = 0.0;
+            bool isLandscape = false;
+            std::vector<dlib::rectangle> face_det;
+            if(imgFR.nr() <imgFR.nc()){
+                longside = imgFR.nc();
+                shortside = imgFR.nr();
+                isLandscape = true; //landscape
+            }
 
-            // int resizeLongSide = 640;
-            // int resizeShortSide = 640;
+            int resizeLongSide = 640;
+            int resizeShortSide = 360;
 
 
-            // dlib::matrix<dlib::rgb_pixel> imgFRPortrait(resizeLongSide,resizeShortSide);
-            // dlib::matrix<dlib::rgb_pixel> imgFRLandscape(resizeShortSide,resizeLongSide);
-            // if(isLandscape){
-            //     xRatio = float(imgFR.nc())/float(resizeLongSide);
-            //     yRatio = float(imgFR.nr())/float(resizeShortSide);
-            //     dlib::resize_image(imgFR,imgFRLandscape,dlib::interpolate_bilinear());
-            //     face_det = face_input_detector(imgFRLandscape);
-            // }else{
-            //     xRatio = float(imgFR.nc())/float(resizeShortSide);
-            //     yRatio = float(imgFR.nr())/float(resizeLongSide);
-            //     dlib::resize_image(imgFR,imgFRPortrait,dlib::interpolate_bilinear());
-            //     face_det = face_input_detector(imgFRPortrait);
-            // }
+            dlib::matrix<dlib::rgb_pixel> imgFRPortrait(resizeLongSide,resizeShortSide);
+            dlib::matrix<dlib::rgb_pixel> imgFRLandscape(resizeShortSide,resizeLongSide);
+            if(isLandscape){
+                xRatio = float(imgFR.nc())/float(resizeLongSide);
+                yRatio = float(imgFR.nr())/float(resizeShortSide);
+                dlib::resize_image(imgFR,imgFRLandscape,dlib::interpolate_bilinear());
+                // face_det = face_input_detector(imgFRLandscape);
+            }else{
+                xRatio = float(imgFR.nc())/float(resizeShortSide);
+                yRatio = float(imgFR.nr())/float(resizeLongSide);
+                dlib::resize_image(imgFR,imgFRPortrait,dlib::interpolate_bilinear());
+                // face_det = face_input_detector(imgFRPortrait);
+            }
             // face_det[0].set_bottom(int(face_det[0].bottom()*yRatio));
             // face_det[0].set_left(int(face_det[0].left()*xRatio));
             // face_det[0].set_right(int(face_det[0].right()*xRatio));
@@ -155,12 +160,10 @@ NullImplFRVT11::createTemplate(
             // saveImgMtx.unlock();
             clock_t beginFD = clock();
             std::cout<<"001: "<<std::endl;
-            std::vector<dlib::rectangle> face_det;
+            // std::vector<dlib::rectangle> face_det;
             std::cout<<"002: "<<std::endl;
             int * pResults = NULL; 
-            //pBuffer is used in the detection functions.
-            //If you call functions in multiple threads, please create one buffer for each thread!
-            unsigned char * pBuffer = (unsigned char *)malloc(DETECT_BUFFER_SIZE);
+
            
 
             ///////////////////////////////////////////
@@ -212,8 +215,7 @@ NullImplFRVT11::createTemplate(
             }
 
 
-            //release the buffer
-            free(pBuffer);
+
 
             std::cout<<"011: "<<std::endl;
 
