@@ -1,4 +1,4 @@
-Add python code to validate code with FAR & FRR:
+Add python code to validate our api implement with FAR & FRR:
 [validate.py](11/validate.py)
 
 run ./compileAndRunFrvt.sh first
