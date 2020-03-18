@@ -59,7 +59,13 @@
 			"valarray": "cpp",
 			"future": "cpp",
 			"forward_list": "cpp",
-			"typeindex": "cpp"
+			"typeindex": "cpp",
+			"random": "cpp",
+			"cstddef": "cpp",
+			"strstream": "cpp",
+			"bitset": "cpp",
+			"cfenv": "cpp",
+			"*.ipp": "cpp"
 		}
 	}
 }

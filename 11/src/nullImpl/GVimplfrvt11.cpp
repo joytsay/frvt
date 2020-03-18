@@ -17,122 +17,62 @@ using namespace std;
 using namespace FRVT;
 using namespace FRVT_11;
 
-InferenceEngine::ExecutableNetwork::Ptr NullImplFRVT11::exe_network = nullptr;
-
 NullImplFRVT11::NullImplFRVT11() {}
 
 NullImplFRVT11::~NullImplFRVT11() {
-    if(faceDetector){
-        delete faceDetector;
-        faceDetector = NULL;
-    }
-        
-    if(facialLandmarksDetector){
-        delete facialLandmarksDetector;
-        facialLandmarksDetector = NULL;
-    }
-       
-    if(input_image){
-        delete[] input_image;
-        input_image = NULL;
-    }
+    // if(input_image){
+    //     delete[] input_image;
+    //     input_image = NULL;
+    // }
+    //For FD
+    //release the buffer
+    free(pBuffer);
+    // SCOPE_EXIT{ tf_utils::DeleteGraph(graphFD); }; // Auto-delete on scope exit.
+    // face_input_detector = dlib::get_frontal_face_detector();
+    //For FR
+    SCOPE_EXIT{ tf_utils::DeleteGraph(graph); }; // Auto-delete on scope exit.
 }
 
 ReturnStatus
 NullImplFRVT11::initialize(const std::string &configDir)
 {
-	try { 
-        tbb::global_control(tbb::global_control::max_allowed_parallelism, 1);
-        // imgCount = 0;
-        // detectFailCount = 0;
-        //tbbControl = new tbb::global_control(tbb::global_control::max_allowed_parallelism, 1);
+	try {
+        enrollCount = 0; 
+        //FD
+        //pBuffer is used in the detection functions.
+        //If you call functions in multiple threads, please create one buffer for each thread!
+        pBuffer = (unsigned char *)malloc(DETECT_BUFFER_SIZE);
+        // std::string FDFileName = configDir + "/mtcnn_frozen_model.pb";
+        // sessionFD=load_graph(FDFileName.c_str(),&graphFD);
+        // if (sessionFD == nullptr) {
+        //     std::cout << "[INFO] Can't load FDgraph" << std::endl;
+        //     return ReturnStatus(ReturnCode::ConfigError);
+        // }else{
+        //     std::cout << "[INFO] Load FDgraph success" << std::endl;
+        // }
+        // face_input_detector = dlib::get_frontal_face_detector(); //ML
+        // std::string facedetectCNNFileName = configDir + "/geo_vision_face_detect.dat";
+        // dlib::deserialize(facedetectCNNFileName) >> net;  
+        //LM
+        std::string landMarkFileName = configDir + "/geo_vision_5_face_landmarks.dat";
+        dlib::deserialize(landMarkFileName) >> sp_5; //read dlib landmark model
         m_JitterCount = FR_JITTER_COUNT;
-        if(!input_image){
-            input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
-        }	
-        // --------------------------- 1. Loading Inference Engine --------------------------------------------
-        // ------------------------------ Parsing and validation of input args -----------------
-        deviceName = "CPU";
-        // slog::info << "configDir: " << configDir << " deviceName: " << deviceName 
-                    // << "InferenceEngine: " << InferenceEngine::GetInferenceEngineVersion() << slog::endl;
-        std::string FDxmlFileName = configDir + "/face-detection-retail-0004.xml";
-        // slog::info << "FDxmlFileName: " << FDxmlFileName << slog::endl;
-        std::string LMxmlFileName = configDir + "/facial-landmarks-35-adas-0001.xml";
-        // slog::info << "LMxmlFileName: " << LMxmlFileName << slog::endl;
-        std::string FRxmlFileName = configDir + "/#38_asian_multi_task_10.xml";
-        // slog::info << "FRxmlFileName: " << FRxmlFileName << slog::endl;
-		// -------------------------------------------------------------------------------------
-        bool FLAGS_async = false;
-        double FLAGS_t = 0.3;
-        bool FLAGS_r = false;
-        float FLAGS_bb_enlarge_coef = 1.2;
-        float FLAGS_dx_coef = 1;
-        float FLAGS_dy_coef = 1;
-        faceDetector = new FaceDetection(FDxmlFileName, deviceName, 1, false, 
-                            FLAGS_async, FLAGS_t, FLAGS_r, 
-                            static_cast<float>(FLAGS_bb_enlarge_coef), 
-                            static_cast<float>(FLAGS_dx_coef), 
-                            static_cast<float>(FLAGS_dy_coef));
-        int FLAGS_n_lm = 16;
-        bool FLAGS_dyn_lm = false;
-        facialLandmarksDetector = new FacialLandmarksDetection(LMxmlFileName, deviceName, 
-                            FLAGS_n_lm, FLAGS_dyn_lm, FLAGS_async, FLAGS_r);
-        // ----------------------------------------------------------------------------------------------------
+        // if(!input_image){
+        //     input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
+        // }
 
-
-        // --------------------------- 2. Reading IR models and loading them to plugins ----------------------
-        // Disable dynamic batching for face detector as it processes one image at a time
-        // slog::info << "Loading device " << deviceName << slog::endl;
-        // std::cout << ie.GetVersions(deviceName) << std::endl;
-        ie.AddExtension(std::make_shared<InferenceEngine::Extensions::Cpu::CpuExtensions>(), deviceName);
-        //ie.SetConfig({{ CONFIG_KEY(CPU_THREADS_NUM), "1" }}, deviceName); //-nthreads
-        //ie.SetConfig({{ CONFIG_KEY(CPU_BIND_THREAD), CONFIG_VALUE(YES) }}, deviceName);
-        // for CPU execution, more throughput-oriented execution via streams
-        //ie.SetConfig({{ CONFIG_KEY(CPU_THROUGHPUT_STREAMS), "1"}}, deviceName); //-nstreams
-
-        bFaceDetectorIsLoaded = false;
-        bFaceLandmarkIsLoaded = false;
-
-        // --------------------Load FR network (Generated xml/bin files)----------------------------------------
-        /** Extracting model name and loading weights **/
-        InferenceEngine::CNNNetReader networkReader;
-        std::string model_path = FRxmlFileName;
-        networkReader.ReadNetwork(model_path);
-        std::string binFileName = model_path.substr(0, model_path.size() - 4) + ".bin";
-        networkReader.ReadWeights(binFileName);
-        network = networkReader.getNetwork();
+        //FR
+        std::string FRFileName = configDir + "/09-02_02-45.pb";
+        graph = tf_utils::LoadGraph(FRFileName.c_str());
+         
+        if (graph == nullptr) {
+            // std::cout << "[INFO] Can't load graph" << std::endl;
+            return ReturnStatus(ReturnCode::ConfigError);
+        }else{
+            // std::cout << "[INFO] Load graph success" << std::endl;
+        }
         mean_values[0]  = mean_values[1]  = mean_values[2]  = 255.0*0.5;
 	    scale_values[0] = scale_values[1] = scale_values[2] = 255.0*0.5;
-        OutputName_vs_index = std::map<std::string, int >{	{ "normalize",0 },
-                                                    { "Softmax_4",1 },
-                                                    { "Softmax_5",2 } };
-        // -----------------------------------------------------------------------------------------------------
-
-        /** Creating FR input blob **/
-        // -----------------------------Prepare input blobs-----------------------------------------------------
-        /** Taking information about all topology inputs **/
-        InferenceEngine::InputsDataMap inputInfo(network.getInputsInfo());
-        if (inputInfo.size() != 1) throw std::logic_error("Sample supports topologies only with 1 input");
-        auto inputInfoItem = *inputInfo.begin();
-        network_input_name = inputInfoItem.first;
-        inputInfoItem.second->setLayout(InferenceEngine::Layout::NCHW);
-        network.setBatchSize(1);
-        // -----------------------------------------------------------------------------------------------------
-
-        // ---------------------------Prepare output blobs------------------------------------------------------
-        InferenceEngine::OutputsDataMap outputInfo(network.getOutputsInfo());
-        for (auto & item : outputInfo) {
-            network_OutputName.push_back(item.first);
-            InferenceEngine::DataPtr outputData = item.second;
-            if (!outputData) {
-                slog::err << "output data pointer is not valid" << slog::endl;
-            }
-            item.second->setLayout(InferenceEngine::Layout::NC);
-        }
-        // -----------------------------------------------------------------------------------------------------
-
-
-        
         // -----------------------------------------------------------------------------------------------------
     } catch (const std::exception & ex) {
         std::cerr << ex.what() << std::endl;
@@ -147,201 +87,267 @@ NullImplFRVT11::createTemplate(
         std::vector<uint8_t> &templ,
         std::vector<EyePair> &eyeCoordinates)
 {
-    try { //---------------------------- Implement intel inference engine -------------------------------------
-        // clock_t begin = clock();
-        tbb::global_control(tbb::global_control::max_allowed_parallelism, 1);
-        if(!bFaceDetectorIsLoaded){
-            Load(*faceDetector).into(ie, deviceName, false);
-            bFaceDetectorIsLoaded = true;
-        }
-        if(!bFaceLandmarkIsLoaded){
-            Load(*facialLandmarksDetector).into(ie, deviceName, false);
-            bFaceLandmarkIsLoaded = true;
-        }
-
-        // std::map<std::string, std::string> config = {{ CONFIG_KEY(CPU_THREADS_NUM), "1"},
-        // { CONFIG_KEY(CPU_THREADS_NUM), CONFIG_VALUE(NO)},
-        // { CONFIG_KEY(CPU_THROUGHPUT_STREAMS), "0"}};
-
-        // -------------------------Load FR model to the plugin-------------------------------------------------
-        if (exe_network == nullptr){
-            exe_network = std::make_shared<InferenceEngine::ExecutableNetwork>(ie.LoadNetwork(network, deviceName));
-        }
-        infer_request = exe_network->CreateInferRequest();
-
-	    InferenceEngine::Blob::Ptr input = infer_request.GetBlob(network_input_name);
-        InferenceEngine::SizeVector input_shape = input->getTensorDesc().getDims();
-        size_t num_channels = input_shape[1];
-        size_t image_size = input_shape[2] * input_shape[3];
-        auto data = input->buffer().as<InferenceEngine::PrecisionTrait<InferenceEngine::Precision::FP32>::value_type*>();
-        // slog::info << "faces.size(): " << faces.size() << slog::endl;
-
+    try {
+        clock_t begin = clock();
         for (unsigned int i=0; i<faces.size(); i++) {
             mtx.lock();
+            // cout << "00" << endl;;
             // imgCount++;
             // ----------------------------------------------------------------------------------------------------
-            std::list<Face::Ptr> facesAttributes;
+            // std::list<Face::Ptr> facesAttributes;
             size_t id = 0;
-            saveImgMtx.lock();
+            // saveImgMtx.lock();
             cv::Mat frame = cv::Mat(faces[i].height, faces[i].width, CV_8UC3);
             cv::Mat showframe;
-            // ------------------------------Visualizing results------------------------------------------------
-            Visualizer::Ptr visualizer;
-            visualizer = std::make_shared<Visualizer>(cv::Size(faces[i].width, faces[i].height ));
-            // -------------------------------------------------------------------------------------------------
+            cv::Mat resizeframe;
             // -------------------------------Set input data----------------------------------------------------
-            // slog::info << "frvt imput image height: " << faces[i].height << ", width: " << faces[i].width << ", size: " << faces[i].size() << slog::endl;
+            // std::cout << "frvt input image height: " << faces[i].height << ", width: " << faces[i].width << ", size: " << faces[i].size() << std::endl;
             std::memcpy(frame.data, faces[i].data.get(), faces[i].size() );  
-            cv::cvtColor(frame,frame, cv::COLOR_BGR2RGB);
-            frame.copyTo(showframe);
-            // string chipFileName = "FDresults/OriImg(" + ProduceUUID() + ").jpg";
-            // cv::imwrite(chipFileName, frame);
-            saveImgMtx.unlock();
-            // cv::imshow("Origin image", frame);
-            // cv::waitKey(300);
-            // cv::destroyAllWindows(); 
-            // Detecting all faces on the frame
-            faceDetector->enqueue(frame);
-            faceDetector->submitRequest();
-            // Retrieving face detection results for the frame
-            faceDetector->wait();
-            faceDetector->fetchResults();
-            auto prev_detection_results = faceDetector->results;
-            // slog::info << "prev_detection_results.size(): " << prev_detection_results.size() << slog::endl;
-            // Filling inputs of face analytics networks
-            for (auto &&face : prev_detection_results) {
-                    auto clippedRect = face.location & cv::Rect(0, 0, frame.cols, frame.rows);
-                    cv::Mat clippedFace = frame(clippedRect);
-                    facialLandmarksDetector->enqueue(clippedFace);
+            //get resize image ratio
+            float Ratio = 1.0;
+            int optimalFDLength = 200;
+            if(faces[i].width > optimalFDLength || faces[i].height > optimalFDLength){
+                float xRatio = faces[i].width/(float)optimalFDLength;
+                float yRatio = faces[i].height/(float)optimalFDLength;
+                Ratio = xRatio > yRatio ? xRatio:yRatio;
             }
-            // Running Facial Landmarks Estimation networks simultaneously
-            facialLandmarksDetector->submitRequest();
-            //For every detected face
+            // std::cout << "frvt input Ratio: " << Ratio << std::endl;
+            frame.copyTo(showframe);
+            dlib::matrix<dlib::rgb_pixel> enroll_chip; //original extract chip
+            dlib::matrix<dlib::bgr_pixel> enroll_chipBGR; //original extract chip
+            std::vector<dlib::point> parts;
+            dlib::cv_image<dlib::rgb_pixel> cv_imgFR(frame);
+            //use dlib to resize (avoid opencv resize uses threading)
+            dlib::matrix<dlib::rgb_pixel> imgFR;
+            dlib::assign_image(imgFR, cv_imgFR);
+            dlib::matrix<dlib::rgb_pixel> imgFRResized(int(faces[i].height/Ratio),int(faces[i].width/Ratio));
+            dlib::resize_image(imgFR,imgFRResized,dlib::interpolate_bilinear());
+            cv::Mat imgResized = dlib::toMat(imgFRResized);
+
+            int * pResults = NULL; 
+            string uuidName = ProduceUUID();
+            // string chipFileName = "FDresults/OriImg(" + ProduceUUID() + ").jpg";
+            // dlib::save_jpeg(imgFR,chipFileName,100);
+            // saveImgMtx.unlock();
+            clock_t beginFD = clock();
+            // std::cout<<"001: "<<std::endl;
+            std::vector<dlib::rectangle> face_det;
+            face_det.resize(1);
+            // std::cout<<"002: "<<std::endl;
+
+
+            ///////////////////////////////////////////
+            // CNN face detection 
+            // Best detection rate
+            //////////////////////////////////////////
+            //!!! The input image must be a BGR one (three-channel) instead of RGB
+            //!!! DO NOT RELEASE pResults !!!
+
+            pResults = facedetect_cnn(pBuffer, (unsigned char*)(imgResized.ptr(0)), imgResized.cols, imgResized.rows, (int)imgResized.step);
+            int facesDetected = pResults ? *pResults : 0;
+            cv::Mat result_image = frame.clone();
+            int xleftEyeCenter = 0;
+            int yleftEyeCenter = 0;
+            int xRightEyeCenter = 0;
+            int yRightEyeCenter = 0;
+            // dlib::full_object_detection shape_5;
+            // std::cout<<"003: "<<std::endl;
+            //print the detection results
+            for(int i = 0; i < facesDetected; i++)
+            {
+                short * p = ((short*)(pResults+1))+142*i;
+                int confidence = p[0];
+                int x = int(p[1]*Ratio);
+                int y = int(p[2]*Ratio);
+                int w = int(p[3]*Ratio);
+                int h = int(p[4]*Ratio);
+// std::cout<<"004: "<<std::endl;
+                face_det[0].set_bottom(y+h);
+                face_det[0].set_left(x);
+                face_det[0].set_right(x+w);
+                face_det[0].set_top(y);
+// std::cout<<"005: "<<std::endl;
+                //  std::cout << "[INFO] YSQ::face_det :[" << face_det[0].bottom() << ","<< face_det[0].left() << ","
+                    // << face_det[0].right() << ","<< face_det[0].top() << "]"<< std::endl;
+                
+                //show the score of the face. Its range is [0-100]
+                char sScore[256];
+                snprintf(sScore, 256, "%d", confidence);
+                cv::putText(result_image, sScore, cv::Point(x, y-3), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                //draw face rectangle
+                rectangle(result_image, cv::Rect(x, y, w, h), cv::Scalar(0, 255, 0), 2);
+                //draw five face landmarks in different colors
+                cv::circle(result_image, cv::Point(int(p[5]*Ratio), int(p[5 + 1]*Ratio)), 1, cv::Scalar(255, 0, 0), 2);
+                cv::circle(result_image, cv::Point(int(p[5 + 2]*Ratio), int(p[5 + 3]*Ratio)), 1, cv::Scalar(0, 0, 255), 2);
+                cv::circle(result_image, cv::Point(int(p[5 + 4]*Ratio), int(p[5 + 5]*Ratio)), 1, cv::Scalar(0, 255, 0), 2);
+                cv::circle(result_image, cv::Point(int(p[5 + 6]*Ratio), int(p[5 + 7]*Ratio)), 1, cv::Scalar(255, 0, 255), 2);
+                cv::circle(result_image, cv::Point(int(p[5 + 8]*Ratio), int(p[5 + 9]*Ratio)), 1, cv::Scalar(0, 255, 255), 2);
+                
+                cv::putText(result_image, "0", cv::Point(int(p[5]*Ratio), int(p[5 + 1]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                cv::putText(result_image, "1", cv::Point(int(p[5 + 2]*Ratio), int(p[5 + 3]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                cv::putText(result_image, "2", cv::Point(int(p[5 + 4]*Ratio), int(p[5 + 5]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                cv::putText(result_image, "3", cv::Point(int(p[5 + 6]*Ratio), int(p[5 + 7]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                cv::putText(result_image, "4", cv::Point(int(p[5 + 8]*Ratio), int(p[5 + 9]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+
+
+                // int eyeWidth = int(abs((p[5]*2 - p[5 + 2]))*0.25)
+                // shape_5.part(0).x() = ;
+                // shape_5.part(0).y() = ;
+                // shape_5.part(1).x() = ;
+                // shape_5.part(1).y() = ;
+                // shape_5.part(2).x() = p[5]*2 - eyeWidth;
+                // shape_5.part(2).y() = ;
+                // shape_5.part(3).x() = ;
+                // shape_5.part(3).y() = ;
+                // shape_5.part(4).x() = ;
+                // shape_5.part(4).y() = ;
+
+
+// std::cout<<"006: "<<std::endl;
+                xleftEyeCenter = int(p[5]*Ratio);
+                yleftEyeCenter = int(p[5 + 1]*Ratio);
+                xRightEyeCenter = int(p[5 + 2]*Ratio);
+                yRightEyeCenter = int(p[5 + 3]*Ratio);
+                //print the result
+                // printf("face %d: confidence=%d, [%d, %d, %d, %d] (%d,%d) (%d,%d) (%d,%d) (%d,%d) (%d,%d)\n", 
+                //         i, confidence, x, y, w, h, 
+                //         p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13],p[14]);
+
+                // saveImgMtx.lock();
+                // string detectFileName = "FDresults/face(" + uuidName + ").jpg";
+                // dlib::cv_image<dlib::rgb_pixel> cv_temp(result_image);
+                // dlib::matrix<dlib::rgb_pixel> dlib_array2d;
+                // dlib::assign_image(dlib_array2d, cv_temp);
+                // dlib::save_jpeg(dlib_array2d,detectFileName,100);
+                // saveImgMtx.unlock();
+// std::cout<<"007: "<<std::endl;
+            }
+            // if(facesDetected==0){
+            //     saveImgMtx.lock();
+            //     string detectFileName = "FDresults/fail(" + uuidName + ").jpg";
+            //     dlib::cv_image<dlib::rgb_pixel> cv_temp(result_image);
+            //     dlib::matrix<dlib::rgb_pixel> dlib_array2d;
+            //     dlib::assign_image(dlib_array2d, cv_temp);
+            //     dlib::save_jpeg(dlib_array2d,detectFileName,100);
+            //     saveImgMtx.unlock();
+            // }
+
+            // std::cout<<"008: "<<std::endl;
+
+            clock_t endFD = clock();
+            double time_spentFD = (double)(endFD - beginFD) / CLOCKS_PER_SEC;
+            // std::cout << "[INFO] FD YSQ execute time: "<<time_spentFD<< " sec spent" << std::endl;
+            // std::vector<dlib::rectangle> face_det = face_input_detector(imgFR);
+            // For multi detected face
             int maxFaceId = 0;
             int maxRectArea = 0;
-            if(prev_detection_results.size() > 1){
-                for (size_t j = 0; j < prev_detection_results.size(); j++) {
-                    auto& result = prev_detection_results[j];
-                    cv::Rect rect = result.location & cv::Rect(0, 0, frame.cols, frame.rows);
-                    if(rect.width * rect.height >  maxRectArea){
-                        maxRectArea = rect.width * rect.height;
-                        maxFaceId = j;
-                    }
-                }
-                // slog::info << "maxFace: " << maxFaceId << slog::endl;
-            }
-
-            for (size_t j = 0; j < prev_detection_results.size(); j++) {
-                if(j != maxFaceId) continue;
-                // if(j > 0 ) break;
-                auto& result = prev_detection_results[j];
-                cv::Rect rect = result.location & cv::Rect(0, 0, frame.cols, frame.rows);
-                Face::Ptr face;
-                face = std::make_shared<Face>(id++, rect);
-                face->landmarksEnable((facialLandmarksDetector->enabled() &&
-                                    j < facialLandmarksDetector->maxBatch));
-                if (face->isLandmarksEnabled()) {
-                    face->updateLandmarks((*facialLandmarksDetector)[j]);
-                }
-                facesAttributes.push_back(face);
-                auto normed_landmarks = (*facialLandmarksDetector)[j];
-                auto n_lm = normed_landmarks.size();
-                for (auto i_lm = 0UL; i_lm < n_lm / 2; ++i_lm) {
-                    float normed_x = normed_landmarks[2 * i_lm];
-                    float normed_y = normed_landmarks[2 * i_lm + 1];
-                    int x_lm = rect.x + rect.width * normed_x;
-                    int y_lm = rect.y + rect.height * normed_y;
-                    // slog::info << "landmark("<< i_lm << "): (x,y)=(" << x_lm << "," << y_lm << ")"  << slog::endl;
-                    // cv::circle(showframe, cv::Point(x_lm, y_lm), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 255, 255), -1);
-                    // string lmText = to_string(i_lm); 
-                    // cv::putText(showframe, lmText, cv::Point(x_lm, y_lm), cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(0, 255, 0));
-                }
-                // --------------------------- Do Face and Landmark Detection for eye center----------------------------
-                int xleftEyeCenter = int (0.5 * (rect.x + rect.width * (normed_landmarks[2 * 0]) + rect.x + rect.width * (normed_landmarks[2 * 1])));
-                int yleftEyeCenter = int (0.5 * (rect.y + rect.height * (normed_landmarks[2 * 0 + 1]) + rect.y + rect.height * (normed_landmarks[2 * 1 + 1])));
-                cv::circle(showframe, cv::Point(xleftEyeCenter, yleftEyeCenter), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(255, 0, 0), -1);
-                int xRightEyeCenter = int (0.5 * (rect.x + rect.width * (normed_landmarks[2 * 2]) + rect.x + rect.width * (normed_landmarks[2 * 3])));
-                int yRightEyeCenter = int (0.5 * (rect.y + rect.height * (normed_landmarks[2 * 2 + 1]) + rect.y + rect.height * (normed_landmarks[2 * 3 + 1])));
-                cv::circle(showframe, cv::Point(xRightEyeCenter, yRightEyeCenter), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 0, 255), -1);
-                // eyeCoordinates.clear();
-                // eyeCoordinates.shrink_to_fit();
-                eyeCoordinates.push_back(EyePair(true, true, xRightEyeCenter, yRightEyeCenter, xleftEyeCenter, yleftEyeCenter));
-                ////////////ISO standard: The label "left" refers to subject's left eye (and similarly for the right eye), such that xright < xleft/////////////////
-                // slog::info << "eyeCoordinatesLeftEye("<< i << "): (x,y)=(" << eyeCoordinates[i].xleft << "," << eyeCoordinates[i].yleft << ")"  << slog::endl;
-                // slog::info << "eyeCoordinatesRightEye("<< i << "): (x,y)=(" << eyeCoordinates[i].xright << "," << eyeCoordinates[i].yright << ")"  << slog::endl;
-                // cv::imshow("Detection results", frame);
-                // cv::waitKey(300);
-                // cv::destroyAllWindows();
-                // ---------------------------------------------------------------------------------------------------
-                // // --------------------------- Do Face and Landmark Detection for eye center--------------------------
-                dlib::rectangle known_det;
-                dlib::matrix<dlib::rgb_pixel> enroll_chip; //original extract chip
-                known_det.set_left(rect.x);
-                known_det.set_top(rect.y);
-                known_det.set_right(rect.x + rect.width);
-                known_det.set_bottom(rect.y + rect.height);
-                // slog::info << "known_det("<<  known_det.left() << "," << known_det.right() << "," <<
-                //                  known_det.top() << "," << known_det.bottom() << ")" << slog::endl;
-                std::vector<dlib::point> parts;
-                parts.resize(5);
-                //mapping to dlibLandmark leftEye:2 3 rightEye:1 0 nosePhiltrum:4
-                parts[0].x() = rect.x + rect.width * (normed_landmarks[2 * 3]);
-                parts[0].y() = rect.y + rect.height * (normed_landmarks[2 * 3 + 1]);
-                parts[1].x() = rect.x + rect.width * (normed_landmarks[2 * 2]); 
-                parts[1].y() = rect.y + rect.height * (normed_landmarks[2 * 2 + 1]);
-                parts[2].x() = rect.x + rect.width * (normed_landmarks[2 * 1]); 
-                parts[2].y() = rect.y + rect.height * (normed_landmarks[2 * 1 + 1]);
-                parts[3].x() = rect.x + rect.width * (normed_landmarks[2 * 0]); 
-                parts[3].y() = rect.y + rect.height * (normed_landmarks[2 * 0 + 1]);
-                parts[4].x() = rect.x + rect.width * (normed_landmarks[2 * 5]); 
-                parts[4].y() = rect.y + rect.height * (normed_landmarks[2 * 5 + 1]);
-                for (int k = 0; k < 5; k++) {
-                    cv::circle(showframe, cv::Point(parts[k].x(),  parts[k].y()), 1 + static_cast<int>(0.012 * rect.width), cv::Scalar(0, 255, 255), -1);
-                    string lmText = to_string(k); 
-                    cv::putText(showframe, lmText, cv::Point(parts[k].x(),  parts[k].y()), cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(0, 255, 0));
-                }
-                cv::Point pt1(rect.x, rect.y);
+            faceDetectCount = facesDetected;
+            // if(faceDetectCount == 0){
+            //     // dlib::matrix<dlib::rgb_pixel> imgFRPry;
+            //     // dlib::assign_image(imgFRPry,imgFR);
+            //     // dlib::pyramid_up(imgFRPry);
+            //     std::vector<dlib::rectangle> face_det = face_input_detector(imgFR);
+            //     faceDetectCount = face_det.size();
+            //     std::cout << "[INFO] dlib::cnnFD used faceDetectCount:" << faceDetectCount<< std::endl;
+            //     if(faceDetectCount==1){
+            //         clock_t beginCnnFD = clock();
+            //         const std::vector<dlib::mmod_rect> cnnFD_det = net(imgFR);
+            //         clock_t endCnnFD = clock();
+            //         double time_spentFD = (double)(endCnnFD - beginCnnFD) / CLOCKS_PER_SEC;
+            //         std::cout << "[INFO] FD dlib DL execute time: "<<time_spentFD<< " sec spent" << std::endl;
+            //         std::cout << "[INFO] dlib::face_det pre:[" << cnnFD_det[0].rect.top() << ","<< cnnFD_det[0].rect.left() << ","
+            //         << cnnFD_det[0].rect.right() << ","<< cnnFD_det[0].rect.bottom() << "]"<< std::endl;
+            //         face_det[0].set_bottom(cnnFD_det[0].rect.top());
+            //         face_det[0].set_left(cnnFD_det[0].rect.left());
+            //         face_det[0].set_right(cnnFD_det[0].rect.right());
+            //         face_det[0].set_top(cnnFD_det[0].rect.bottom());
+            //         // face_det[0].set_bottom(int(cnnFD_det[0].rect.top()*xRatio));
+            //         // face_det[0].set_left(int(cnnFD_det[0].rect.left()*yRatio));
+            //         // face_det[0].set_right(int(cnnFD_det[0].rect.right()*yRatio));
+            //         // face_det[0].set_top(int(cnnFD_det[0].rect.bottom()*xRatio));
+            //         std::cout << "[INFO] dlib::imgFR size:[" << imgFR.nc()<<","<< imgFR.nr()<<"]"<< std::endl;
+            //         // face_det[0].set_bottom(int(face_det[0].bottom()*0.5));
+            //         // face_det[0].set_left(int(face_det[0].left()*0.5));
+            //         // face_det[0].set_right(int(face_det[0].right()*0.5));
+            //         // face_det[0].set_top(int(face_det[0].top()*0.5));
+            //         // std::cout << "[INFO] dlib::face_det post:[" << face_det[0].bottom() << ","<< face_det[0].left() << ","
+            //         // << face_det[0].right() << ","<< face_det[0].top() << "]"<< std::endl;
+            //     }
+            // }
+            if(faceDetectCount > 0){
+                // cout << "031" << endl;
+                //     if(faceDetectCount > 1){
+                //     for (size_t j = 0; j < faceDetectCount; j++) {
+                //         if(face_det[j].width() * face_det[j].height() >  maxRectArea){
+                //             maxRectArea = face_det[j].width() * face_det[j].height();
+                //             maxFaceId = j;
+                //         }
+                //     }
+                // }
+                //====================Do dlib Landmark====================================
+                dlib::full_object_detection shape_5 = sp_5(imgFR, face_det[0]);
+                cv::Point pt1(face_det[maxFaceId].left(), face_det[maxFaceId].top());
                 // and its bottom right corner.
-                cv::Point pt2(rect.x + rect.width, rect.y + rect.height);
+                cv::Point pt2(face_det[maxFaceId].right(), face_det[maxFaceId].bottom());
                 // These two calls...
                 cv::rectangle(showframe, pt1, pt2, cv::Scalar(0, 0, 255));
-                // cv::imshow("Detection results", showframe);
+// std::cout<<"009: "<<std::endl;
+                // --------------------------- Assign Landmark for eye center----------------------------
+                //dlibLandmark leftEye:2 3 rightEye:1 0 nosePhiltrum:4
+                // cv::putText(result_image, "0", cv::Point(p[5]*2, p[5 + 1]*2), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                // cv::putText(result_image, "1", cv::Point(p[5 + 2]*2, p[5 + 3]*2), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                // int xleftEyeCenter = int ((shape_5.part(2).x() + shape_5.part(3).x())*0.5);
+                // int yleftEyeCenter = int ((shape_5.part(2).y() + shape_5.part(3).y())*0.5);
+                cv::circle(showframe, cv::Point(xleftEyeCenter, yleftEyeCenter), 1 + static_cast<int>(0.012 * face_det[maxFaceId].width()), cv::Scalar(255, 0, 0), -1);
+                // int xRightEyeCenter = int ((shape_5.part(0).x() + shape_5.part(1).x())*0.5);
+                // int yRightEyeCenter = int ((shape_5.part(0).y() + shape_5.part(1).y())*0.5);
+                cv::circle(showframe, cv::Point(xRightEyeCenter, yRightEyeCenter), 1 + static_cast<int>(0.012 * face_det[maxFaceId].width()), cv::Scalar(0, 0, 255), -1);
+                eyeCoordinates.clear();
+                eyeCoordinates.shrink_to_fit();
+                eyeCoordinates.push_back(EyePair(true, true, xRightEyeCenter, yRightEyeCenter, xleftEyeCenter, yleftEyeCenter)); //left right eyes are mirrored
+                //////////ISO standard: The label "left" refers to subject's left eye (and similarly for the right eye), such that xright < xleft/////////////////
+                // cout << "eyeCoordinatesLeftEye("<< i << "): (x,y)=(" << eyeCoordinates[i].xleft << "," << eyeCoordinates[i].yleft << ")"  << endl;
+                // cout << "eyeCoordinatesRightEye("<< i << "): (x,y)=(" << eyeCoordinates[i].xright << "," << eyeCoordinates[i].yright << ")"  << endl;
                 // saveImgMtx.lock();
-                // std::time_t t = std::time(0);   // get time now
-                // std::tm* now = std::localtime(&t);
-                // srand((unsigned) time(&t));
-                // int rndNumber = rand() % 10000;
-                // string detectFileName = "FDresults/face(" + to_string(now->tm_year + 1900) + "_"
-                // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
-                // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
-                // string detectFileName = "FDresults/face(" + ProduceUUID() + ").jpg"; ;
+                // string detectFileName = "FDresults/face(" + ProduceUUID() + ").jpg";
+                // dlib::cv_image<dlib::rgb_pixel> cv_temp(showframe);
+                // dlib::matrix<dlib::rgb_pixel> dlib_array2d;
+                // dlib::assign_image(dlib_array2d, cv_temp);
+                // dlib::save_jpeg(dlib_array2d,detectFileName,100);
                 // cv::imwrite(detectFileName, showframe);
                 // saveImgMtx.unlock();
-                // cv::waitKey(300);
-                // cv::destroyAllWindows();
-                dlib::full_object_detection shape_local(known_det, parts);
-                dlib::cv_image<dlib::rgb_pixel> cv_imgFR(frame);
-                dlib::matrix<dlib::rgb_pixel> imgFR;
-                assign_image(imgFR, cv_imgFR);
-                dlib::extract_image_chip(imgFR, dlib::get_face_chip_details(shape_local, FR_IMAGE_HEIGHT, FR_IMAGE_PADDING*0.01), enroll_chip);
-                cv::Mat enrollChipMat = dlib::toMat(enroll_chip);
-                // saveImgMtx.lock();
-                // std::time_t t = std::time(0);   // get time now
-                // std::tm* now = std::localtime(&t);
-                // srand((unsigned) time(&t));
-                // int rndNumber = rand() % 10000;
-                // string chipFileName = "FDresults/chip(" + to_string(now->tm_year + 1900) + "_"
-                // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
-                // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
-                // string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
-                // cv::imwrite(chipFileName, enrollChipMat);
+                // std::cout<<"010: "<<std::endl;
+                //-------------------------------Crop face image================================
+                dlib::extract_image_chip(imgFR, dlib::get_face_chip_details(shape_5, FR_IMAGE_HEIGHT, FR_IMAGE_PADDING*0.01), enroll_chip);
+                dlib::assign_image(enroll_chipBGR, enroll_chip);
+                // if(enrollCount==0){
+                    // cv::Mat enrollChipMat = dlib::toMat(enroll_chip);
+                //     saveImgMtx.lock();
+                //     std::time_t t = std::time(0);   // get time now
+                //     std::tm* now = std::localtime(&t);
+                //     std::srand((unsigned) time(&t));
+                //     int rndNumber = rand() % 10000;
+                //     string chipFileName = "FDresults/chip(" + uuidName + ").jpg";
+                //     dlib::save_jpeg(enroll_chip,chipFileName,100);
+                // // }
+                // // cv::imwrite(chipFileName, enrollChipMat);
                 // saveImgMtx.unlock();
                 // cv::waitKey(300);
                 // cv::destroyAllWindows();
+                // cout << "06" << endl;
+                
+            }else{//no face detected return error enum
+                eyeCoordinates.clear();
+                eyeCoordinates.shrink_to_fit();
+                eyeCoordinates.push_back(EyePair(false, false, xRightEyeCenter, yRightEyeCenter, xleftEyeCenter, yleftEyeCenter));
+                // return ReturnStatus(ReturnCode::FaceDetectionError);
+            }            
+            
 
-                std::vector<dlib::matrix<float, 0, 1>> SVM_descriptor;
-                std::vector<dlib::matrix<dlib::rgb_pixel>> SVM_distrub_color_crops;
-                int cropsCount = m_JitterCount;
+            std::vector<dlib::matrix<float, 0, 1>> SVM_descriptor;
+            std::vector<dlib::matrix<dlib::rgb_pixel>> SVM_distrub_color_crops;
+            int cropsCount = m_JitterCount;
+            if(faceDetectCount > 0){
                 if(role == TemplateRole::Enrollment_11 || role == TemplateRole::Enrollment_1N){
                     // slog::info << "FR image TemplateRole Enrollment"<< slog::endl;
                     if(m_JitterCount > 0){
@@ -355,103 +361,263 @@ NullImplFRVT11::createTemplate(
                     SVM_distrub_color_crops.push_back(enroll_chip);
                     cropsCount = 1;
                 }
-                for (int i = 0; i < cropsCount; i++)
-                {
-                    cv::Mat chipMat = dlib::toMat(SVM_distrub_color_crops[i]);
-                    // if(i == cropsCount - 1){
-                    //     std::string jitterShowName = "LastChip(" + to_string(i) + ")";
-                    //     cv::imshow(jitterShowName, chipMat);
-                    //     saveImgMtx.lock();
-                    //     // std::time_t t = std::time(0);   // get time now
-                    //     // std::tm* now = std::localtime(&t);
-                    //     // srand((unsigned) time(&t));
-                    //     // int rndNumber = rand() % 10000;
-                    //     // string chipFileName = "FDresults/chip(" + to_string(now->tm_year + 1900) + "_"
-                    //     // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
-                    //     // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
-                    //     string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
-                    //     cv::imwrite(chipFileName, chipMat);
-                    //     saveImgMtx.unlock();
-                    //     cv::waitKey(300);
-                    //     cv::destroyAllWindows();
-                    // }
-                    // ---------------------------------------------------------------------------------------------------
+            }else{
+                cropsCount = 0;
+            }
 
-                    // --------------------------Prepare FR input---------------------------------------------------------
-                    // if (image_size != chipMat.rows * chipMat.cols) {
-                    //     slog::info << "FR image_size didn`t match network_input_size"<< slog::endl;
-                    // }
-                    // slog::info << "dims[0]: "<< input->dims()[0] << ", dims[1]: "<< input->dims()[1] << ", dims[2]: "<< input->dims()[2]
-                    // << ", image_size: " << image_size << ", num_channels:" << num_channels << slog::endl;
-                    // std::cout<<"13"<<"chipMat.rows: "<<chipMat.rows<<", chipMat.cols: "<<chipMat.cols<<endl;
-                    // // unsigned char test_image[224*224*3];
-                    // memcpy(test_image, chipMat.data, chipMat.rows * chipMat.cols*3);
-                    std::memcpy(input_image, chipMat.data, chipMat.rows * chipMat.cols*3);
-                    /** Iterate over all input images **/
-                        /** Iterate over all pixel in image (r,g,b) **/
-                        for (size_t pid = 0; pid < image_size; pid++) {
-                            /** Iterate over all channels **/
-                            for (size_t ch = 0; ch < num_channels; ++ch) {
-                                // std::cout<<"pid: "<<pid<<", ch: "<<ch<<endl;
-                                data[ch *image_size + pid] = ((double)input_image[pid*num_channels + ch]- mean_values[ch]) / scale_values[ch];
-                                // std::cout<<"data: "<<image_size + pid<<", input_image: "<<pid*num_channels + ch<<endl;
-                            }
-                        }
-                    // ---------------------------------------------------------------------------------------------------
 
-                    // ---------------------------FR Postprocess output blobs-----------------------------------------------
-                    infer_request.Infer(); //FR Do inference
-                    memset(jitterFR_emb,0.0,FR_EMBEDDING_SIZE);
-                    memset(gender,0.0,2);
-                    memset(age,0.0,7);
-                    for (int out_c = 0; out_c < network_OutputName.size(); out_c++) {
-                        const InferenceEngine::Blob::Ptr output_blob = infer_request.GetBlob(network_OutputName[out_c]);
-                        float* pOt = NULL;
-                        switch (OutputName_vs_index[network_OutputName[out_c]]) {
-                        case 0:
-                            pOt = jitterFR_emb;
-                            break;
-                        case 1:
-                            pOt = gender;
-                            break;
-                        case 2:
-                            pOt = age;
-                            break;
-                        default:
-                            std::string FRmsg = "FR output_name error";
-                            // slog::info << FRmsg << slog::endl;
-                        }
-                        const auto output_data = output_blob->buffer().as<InferenceEngine::PrecisionTrait<InferenceEngine::Precision::FP32>::value_type*>();
-                        /** Validating -nt value **/
-                        const int resultsCnt = output_blob->size();
-                        int ntop = resultsCnt;
-                        // std::cout<<"resultsCnt: "<<resultsCnt<<endl;
-                        for (size_t id = 0, cnt = 0; cnt < ntop; cnt++, id++) {
-                            /** Getting probability for resulting class **/
-                            pOt[cnt] = output_data[id];
-                            // std::cout<<"ntop: "<<ntop<<", cnt: "<<cnt<<"output_data[id]"<<to_string(output_data[id])<<endl;
-                        }
+            // std::cout<<"011: "<<std::endl;
+
+            for (int i = 0; i < cropsCount; i++)
+            {
+                // cv::Mat image = dlib::toMat(SVM_distrub_color_crops[i]);
+
+                // std::vector<TF_Output> 	input_tensors, output_tensors;
+                // std::vector<TF_Tensor*> input_values, output_values;
+
+                // // input tensor shape.
+                // int num_dims = 4;
+                // std::int64_t input_dims[4] = {1, image.rows, image.cols, 3}; //1 is number of batch, and 3 is the no of channels.
+                // int num_bytes_in = image.cols * image.rows * 3; //3 is the number of channels.
+                
+                // input_tensors.push_back({TF_GraphOperationByName(graph, "input"),0});
+                // input_values.push_back(TF_NewTensor(TF_UINT8, input_dims, num_dims, image.data, num_bytes_in, &Deallocator, 0));
+
+                // output_tensors.push_back({ TF_GraphOperationByName(graph, "embedding"),0 });
+                // output_values.push_back(nullptr);
+
+                // TF_Status* status = TF_NewStatus();
+                // TF_SessionOptions* options = TF_NewSessionOptions();
+                // std::array<std::uint8_t, 13> config = {{ 0x0a ,0x07, 0x0a, 0x03, 0x43, 0x50, 0x55, 0x10, 0x01, 0x10, 0x01, 0x28, 0x01}};
+                // TF_SetConfig(options, config.data(), config.size(), status);
+                // TF_Session* session = TF_NewSession(graph, options, status);
+                // TF_DeleteSessionOptions(options);
+                // TF_SessionRun(session, nullptr,
+                //     &input_tensors[0], &input_values[0], input_values.size(),
+                //     &output_tensors[0], &output_values[0], 1, //1 is the number of outputs count..
+                //     nullptr, 0, nullptr, status
+                // );
+                // if (TF_GetCode(status) != TF_OK)
+                // {
+                //     printf("ERROR: SessionRun: %s", TF_Message(status));
+                // }
+                // TF_DeleteStatus(status);
+
+                // float* embeddingResults = new float[FR_EMBEDDING_SIZE];
+                // embeddingResults = static_cast<float_t*>(TF_TensorData(output_values[0]));
+                // auto data = static_cast<float*>(TF_TensorData(output_values[0]));
+
+                // std::cout << "Output vals: " << data[0] << ", " << data[1] << ", " << data[2] << ", " << data[3] << std::endl;
+
+                // cout<<typeid(embeddingResults).name() <<endl;
+
+                // if(i == cropsCount - 1){
+                //     std::string jitterShowName = "LastChip(" + to_string(i) + ")";
+                //     cv::imshow(jitterShowName, chipMat);
+                //     saveImgMtx.lock();
+                //     // std::time_t t = std::time(0);   // get time now
+                //     // std::tm* now = std::localtime(&t);
+                //     // srand((unsigned) time(&t));
+                //     // int rndNumber = rand() % 10000;
+                //     // string chipFileName = "FDresults/chip(" + to_string(now->tm_year + 1900) + "_"
+                //     // + to_string(now->tm_mon + 1) + "_"  + to_string(now->tm_mday) + "_" + to_string(now->tm_hour) + "_" 
+                //     // + to_string(now->tm_min) + "_" + to_string(now->tm_sec) + "_" + to_string(rndNumber) + ").jpg"; 
+                //     string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
+                //     cv::imwrite(chipFileName, chipMat);
+                //     saveImgMtx.unlock();
+                //     cv::waitKey(300);
+                //     cv::destroyAllWindows();
+                // }
+                // ---------------------------------------------------------------------------------------------------
+
+                // --------------------------Prepare FR input---------------------------------------------------------
+
+                // cv::Mat chipMat = dlib::toMat(SVM_distrub_color_crops[i]);
+                cv::Mat chipMat = dlib::toMat(enroll_chipBGR);
+                // cv::imshow("chipMat",chipMat);
+                // std::memcpy(input_image, chipMat.data, chipMat.rows * chipMat.cols*3);
+                // cv::waitKey();
+                std::vector<float> input_data;
+
+                cv::Mat image32f;
+                chipMat.convertTo( image32f, CV_32F );
+                input_data.assign( (float*) image32f.data, (float*) image32f.data + image32f.total() * image32f.channels() );
+                // std::cout<<"input_data: "<<input_data.size()<<std::endl;
+                float normalizeInput = 255.0*0.5;
+                for(int i = 0; i< 224*224*3; i++){
+                    // std::cout<<" input_dataPre: "<<input_data[i];
+                    input_data[i]=float(input_data[i] - normalizeInput)/normalizeInput;
+                    // std::cout<<" input_dataPost: "<<input_data[i]<<std::endl;
+                }
+// std::cout<<"012: "<<std::endl;
+                // dimensions
+                const std::vector<std::int64_t> input_dims = { 1, 224,224,3 };
+                // Tensors:
+                const std::vector<TF_Output> input_ops = { {TF_GraphOperationByName( graph, "input" ), 0} };
+                const std::vector<TF_Tensor*> input_tensors = { tf_utils::CreateTensor( TF_FLOAT, input_dims, input_data ) };
+                SCOPE_EXIT{ tf_utils::DeleteTensors(input_tensors); }; // Auto-delete on scope exit.
+
+                const std::vector<TF_Output> out_ops = { {TF_GraphOperationByName( graph, "embedding" ), 0} };
+                std::vector<TF_Tensor*> output_tensors = { nullptr };
+                SCOPE_EXIT{ tf_utils::DeleteTensors(output_tensors); }; // Auto-delete on scope exit.
+
+                // create TF session:
+                TF_Status* status = TF_NewStatus();
+                TF_SessionOptions* options = TF_NewSessionOptions();
+                std::array<std::uint8_t, 13> config = {{ 0x0a ,0x07, 0x0a, 0x03, 0x43, 0x50, 0x55, 0x10, 0x01, 0x10, 0x01, 0x28, 0x01}};
+                TF_SetConfig(options, config.data(), config.size(), status);
+                TF_Session* session = tf_utils::CreateSession( graph, options, status );
+                // run Session
+                clock_t beginFR = clock();
+                const TF_Code code = tf_utils::RunSession( session, input_ops, input_tensors, out_ops, output_tensors );
+                clock_t endFR = clock();
+                double time_spentFD = (double)(endFR - beginFR) / CLOCKS_PER_SEC;
+                // std::cout << "[INFO] FR TF execute time: "<<time_spentFD<< " sec spent" << std::endl;
+                SCOPE_EXIT{ tf_utils::DeleteSession(session); }; // Auto-delete on scope exit.
+                // get the data:
+                const std::vector<std::vector<float>> dataOutputResults = tf_utils::GetTensorsData<float>( output_tensors );
+                // cout<< "dataOutputResults.size : "<< dataOutputResults.size()<<", dataOutputResults[0].size" << dataOutputResults[0].size()<<endl;
+// std::cout<<"013: "<<std::endl;
+
+                // std::vector<TF_Output> 	input_tensors, output_tensors;
+                // std::vector<TF_Tensor*> input_values, output_values;
+
+                // //input tensor shape.
+                // int num_dims = 4;
+                // std::int64_t input_dims[4] = {1, chipMat.rows, chipMat.cols, 3}; //1 is number of batch, and 3 is the no of channels.
+                // int num_bytes_in = chipMat.cols * chipMat.rows * 3; //3 is the number of channels.
+                
+                // input_tensors.push_back({TF_GraphOperationByName(graph, "input"),0});
+                // input_values.push_back(TF_NewTensor(TF_FLOAT, input_dims, num_dims, chipMat.data, num_bytes_in, &Deallocator, 0));
+
+                // output_tensors.push_back({ TF_GraphOperationByName(graph, "embedding"),0 });
+                // output_values.push_back(nullptr);
+
+
+                // // create TF session:
+                // TF_Status* status = TF_NewStatus();
+                // TF_SessionOptions* options = TF_NewSessionOptions();
+                // std::array<std::uint8_t, 13> config = {{ 0x0a ,0x07, 0x0a, 0x03, 0x43, 0x50, 0x55, 0x10, 0x01, 0x10, 0x01, 0x28, 0x01}};
+                // TF_SetConfig(options, config.data(), config.size(), status);
+                // TF_Session* session = tf_utils::CreateSession( graph, options, status );
+
+                // TF_SessionRun(session, nullptr,
+                //     &input_tensors[0], &input_values[0], input_values.size(),
+                //     &output_tensors[0], &output_values[0], 1, //1 is the number of outputs count..
+                //     nullptr, 0, nullptr, status
+                // );
+                // if (TF_GetCode(status) != TF_OK)
+                // {
+                //     printf("ERROR: SessionRun: %s", TF_Message(status));
+                // }
+                
+                // auto detection_classes = static_cast<float_t*>(TF_TensorData(output_values[0]));
+
+
+
+
+                // ---------------------------------------------------------------------------------------------------
+                ////deprecated intel inference engine code////
+                // --------------------------Prepare FR input---------------------------------------------------------
+                // if (image_size != chipMat.rows * chipMat.cols) {
+                //     slog::info << "FR image_size didn`t match network_input_size"<< slog::endl;
+                // }
+                // slog::info << "dims[0]: "<< input->dims()[0] << ", dims[1]: "<< input->dims()[1] << ", dims[2]: "<< input->dims()[2]
+                // << ", image_size: " << image_size << ", num_channels:" << num_channels << slog::endl;
+                // std::cout<<"13"<<"chipMat.rows: "<<chipMat.rows<<", chipMat.cols: "<<chipMat.cols<<endl;
+                // // unsigned char test_image[224*224*3];
+                // memcpy(test_image, chipMat.data, chipMat.rows * chipMat.cols*3);
+                // std::memcpy(input_image, chipMat.data, chipMat.rows * chipMat.cols*3);
+                // /** Iterate over all input images **/
+                //     /** Iterate over all pixel in image (r,g,b) **/
+                //     for (size_t pid = 0; pid < image_size; pid++) {
+                //         /** Iterate over all channels **/
+                //         for (size_t ch = 0; ch < num_channels; ++ch) {
+                //             // std::cout<<"pid: "<<pid<<", ch: "<<ch<<endl;
+                //             data[ch *image_size + pid] = ((double)input_image[pid*num_channels + ch]- mean_values[ch]) / scale_values[ch];
+                //             // std::cout<<"data: "<<image_size + pid<<", input_image: "<<pid*num_channels + ch<<endl;
+                //         }
+                //     }
+                // ---------------------------------------------------------------------------------------------------
+
+                // ---------------------------FR Postprocess output blobs-----------------------------------------------
+            //         infer_request.Infer(); //FR Do inference
+                    memset(jitterFR_emb,0.0,FR_EMBEDDING_SIZE*__SIZEOF_FLOAT__);
+                    for(int i=0;i<FR_EMBEDDING_SIZE;i++){
+                        jitterFR_emb[i] = dataOutputResults[0][i];
                     }
+// std::cout<<"014: "<<std::endl;
+                    // float sum = 0;
+                    // float map[FR_EMBEDDING_SIZE];
+                    // memset(map,0.0,FR_EMBEDDING_SIZE*__SIZEOF_FLOAT__);
+                    // for(int i=0;i<FR_EMBEDDING_SIZE;i++){
+                    //     map[i] = data[0][i];
+                    // }
+                    // for (int j = 0; j < FR_EMBEDDING_SIZE; j++) { sum = sum + map[j] * map[j]; }
+                    // sum = sqrt(sum);
+                    // for (int j = 0; j < FR_EMBEDDING_SIZE; j++) { jitterFR_emb[j] = map[j] / sum; }
+
+
+
+                    // for(int i=0;i<FR_EMBEDDING_SIZE;i++){
+                    //     jitterFR_emb[i] = embeddingResults[0][i];
+                    // }
+            //         memset(gender,0.0,2);
+            //         memset(age,0.0,7);
+                    // for (int out_c = 0; out_c < network_OutputName.size(); out_c++) {
+            //             const InferenceEngine::Blob::Ptr output_blob = infer_request.GetBlob(network_OutputName[out_c]);
+            //             float* pOt = NULL;
+            //             switch (OutputName_vs_index[network_OutputName[out_c]]) {
+            //             case 0:
+            //                 pOt = jitterFR_emb;
+            //                 break;
+            //             case 1:
+            //                 pOt = gender;
+            //                 break;
+            //             case 2:
+            //                 pOt = age;
+            //                 break;
+            //             default:
+            //                 std::string FRmsg = "FR output_name error";
+            //                 // slog::info << FRmsg << slog::endl;
+            //             }
+            //             const auto output_data = output_blob->buffer().as<InferenceEngine::PrecisionTrait<InferenceEngine::Precision::FP32>::value_type*>();
+            //             /** Validating -nt value **/
+            //             const int resultsCnt = output_blob->size();
+            //             int ntop = resultsCnt;
+            //             // std::cout<<"resultsCnt: "<<resultsCnt<<endl;
+            //             for (size_t id = 0, cnt = 0; cnt < ntop; cnt++, id++) {
+            //                 /** Getting probability for resulting class **/
+            //                 pOt[cnt] = output_data[id];
+            //                 // std::cout<<"ntop: "<<ntop<<", cnt: "<<cnt<<"output_data[id]"<<to_string(output_data[id])<<endl;
+            //             }
+            //         }
                     SVM_descriptor.push_back(array_to_dlib_1D_matrix(1, jitterFR_emb, FR_EMBEDDING_SIZE)[0]);
-                    // FR_emb[emb]
-                } //jitter cropsCount
-                // -----------------------------------------------------------------------------------------------------
-                // slog::info << "FR features[0,1,127,510,511]: " 
-                // << "[" << FR_emb[0] << ", " << FR_emb[1] << ", " << FR_emb[127] << ", " << FR_emb[510] << ", " << FR_emb[511] << "] " << slog::endl;
+            //         // FR_emb[emb]
+            } //jitter cropsCount
+            //     // -----------------------------------------------------------------------------------------------------
                 dlib::matrix<float, 0, 1> temp_mat = mean(mat(SVM_descriptor));
-                std::vector<dlib::matrix<float, 0, 1>> EnrollDescriptor;
-                int normalizeLength = dlib::length(temp_mat) < 1 ? 1 : dlib::length(temp_mat);
-                EnrollDescriptor.push_back(temp_mat / normalizeLength); //Use jitter image and normalize to length
+                // std::vector<dlib::matrix<float, 0, 1>> EnrollDescriptor;
+                // cout << "dlib::length(temp_mat): " << dlib::length(temp_mat) << std::endl;
+                // int normalizeLength = dlib::length(temp_mat) < 1 ? 1 : dlib::length(temp_mat);
+                // cout << "normalizeLength: " << normalizeLength << std::endl;
+                // int normalizeLength = dlib::length(temp_mat);
+                // EnrollDescriptor.push_back(temp_mat / normalizeLength); //Use jitter image and normalize to length
                 memset(FR_emb,0.0,FR_EMBEDDING_SIZE);
                 for (int j = 0; j < FR_EMBEDDING_SIZE; j++)
                 {
-                    FR_emb[j] = EnrollDescriptor[EnrollDescriptor.size() - 1](j, 0);
+                    FR_emb[j] = temp_mat(j, 0);
+                    // FR_emb[j] = EnrollDescriptor[EnrollDescriptor.size() - 1](j, 0);
                 }
-                std::vector <dlib::matrix<float, 0, 1>>().swap(EnrollDescriptor);
-            } //detected faces vector array
+                // std::vector <dlib::matrix<float, 0, 1>>().swap(EnrollDescriptor);
 
+                // std::cout << "FR features[0,1,127,510,511]: " 
+                // << "[" << FR_emb[0] << ", " << FR_emb[1] << ", " << FR_emb[127] << ", " << FR_emb[510] << ", " << FR_emb[511] << "] " << std::endl;
+
+            // } //detected faces vector array
+// std::cout<<"015: "<<std::endl;
             std::vector<float> fv;
-            if(prev_detection_results.size() == 0){ //for no FD found give false eyes detected bool and zero coordinates
+            if(faceDetectCount == 0){ //for no FD found give false eyes detected bool and zero coordinates
                 eyeCoordinates.push_back(EyePair(false, false, 0, 0, 0, 0));
                 // saveImgMtx.lock();
                 // std::time_t t = std::time(0);   // get time now
@@ -478,21 +644,79 @@ NullImplFRVT11::createTemplate(
                 }
                 // -----------------------------------------------------------------------------------------------------
             }
+            //==test use==
+            // if(enrollCount==0){
+            //     std::cout<<"fv features: {  "<< std::endl;
+            //     for(int i=0;i<FR_EMBEDDING_SIZE;i++){ std::cout<<fv[i] << std::endl; }
+            //     std::cout<<"  }" << std::endl;
+            // }
+            // enrollCount=1;
+
+            // memset(FR_emb,0,__SIZEOF_FLOAT__*FR_EMBEDDING_SIZE);
+            // for(int emb = 0; emb < FR_EMBEDDING_SIZE; emb++){
+            //     fv.push_back(FR_emb[emb]);
+            // }
+            //==test use==
             const uint8_t* bytes = reinterpret_cast<const uint8_t*>(fv.data());
             int dataSize = sizeof(float) * fv.size();
             templ.resize(dataSize);
             std::memcpy(templ.data(), bytes, dataSize);
-            // slog::info << "FR features size: "<<fv.size()<< " fv[0,1,127,510,511]: " 
-            // << "[" << fv[0] << ", " << fv[1] << ", " << fv[127] << ", " << fv[510] << ", " << fv[511] << "] " << slog::endl;
+            // std::cout << "FR features size: "<<fv.size()<< " fv[0,1,127,510,511]: " 
+            // << "[" << fv[0] << ", " << fv[1] << ", " << fv[127] << ", " << fv[510] << ", " << fv[511] << "] " << std::endl;
             mtx.unlock();
+            // test_matrix1.set_size(FR_EMBEDDING_SIZE);
+            // test_matrix2.set_size(FR_EMBEDDING_SIZE);
+            // for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
+            //     if(enrollCount%2==0){
+            //         test_matrix1(j) = fv[j];
+            //     }else{
+            //         test_matrix2(j) = fv[j];
+            //     }
+            // }
+            // if(enrollCount>0){
+            //     std::cout << "FR features "<< " test_matrix1[0,1,127,510,511]: " 
+            //     << "[" << test_matrix1(0) << ", " << test_matrix1(1) << ", " << test_matrix1(127) << ", " << test_matrix1(510) << ", " << test_matrix1(511) << "] " << std::endl;
+            //     std::cout << "FR features "<< " test_matrix2[0,1,127,510,511]: " 
+            //     << "[" << test_matrix2(0) << ", " << test_matrix2(1) << ", " << test_matrix2(127) << ", " << test_matrix2(510) << ", " << test_matrix2(511) << "] " << std::endl;
+            //     // double similarity = 1.00 - (dlib::length(test_matrix1 - test_matrix2));
+            //     double similarity = 1.00 - (dlib::length(test_matrix1 - test_matrix2)*0.50 - 0.20);
+            //     std::cout << "FR similarity: ("<< similarity << ")enrollCount: (" << enrollCount << ") " << std::endl;
+            // }
+            // enrollCount++;
+
+            //deallocate vectors
+            // std::vector <dlib::matrix<float, 0, 1>>().swap(EnrollDescriptor);
+            std::vector <dlib::matrix<dlib::rgb_pixel>>().swap(SVM_distrub_color_crops);
+            std::vector <dlib::matrix<float, 0, 1>>().swap(SVM_descriptor);
+            std::vector <dlib::point>().swap(parts);
+            std::vector <dlib::rectangle>().swap(face_det);
+// std::cout<<"016: "<<std::endl;
         } //faces vect`or size array
-        // clock_t end = clock();
-        // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
-        // slog::info << "FR createTemplate executeㄥtime: "<<time_spent<< " sec spent" << slog::endl;
+        clock_t end = clock();
+        double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+        // std::cout << "[INFO] NIST createTemplate execute time: "<<time_spent<< " sec spent" << std::endl;
     } catch (const std::exception & ex) {
         std::cerr << ex.what() << std::endl;
+        // return ReturnStatus(ReturnCode::UnknownError);
     }
-    return ReturnStatus(ReturnCode::Success);
+    // if(faceDetectCount < 1){
+        // return ReturnStatus(ReturnCode::FaceDetectionError);
+    // }else{
+        // std::cout << "faceDetectCount: " << faceDetectCount <<std::endl;
+
+        // if(faceDetectCount < 1){
+            // std::cout << "faceDetectCount: " << faceDetectCount << std::endl;
+            //     std::cout << "templ: " << std::endl;
+            // for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
+            //     std::cout << templ[j] << ", ";
+            //     if(j%10==0){
+            //         std::cout << std::endl;
+            //     }
+            // }
+        // }
+
+        return ReturnStatus(ReturnCode::Success);
+    // }
 }
 
 ReturnStatus
@@ -505,19 +729,50 @@ NullImplFRVT11::matchTemplates(
     float *vfeatureVector = (float *)verifTemplate.data();
     dlib::matrix<float, 0, 1> out_matrix;
     dlib::matrix<float, 0, 1> vout_matrix;
+    dlib::matrix<float, 0, 1> zero_matrix;
     out_matrix.set_size(FR_EMBEDDING_SIZE);
     vout_matrix.set_size(FR_EMBEDDING_SIZE);
+    zero_matrix.set_size(FR_EMBEDDING_SIZE);
+
     for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
         out_matrix(j) = featureVector[j];
         vout_matrix(j) = vfeatureVector[j];
+        zero_matrix(j) = 0.0;
     }
-    similarity = 1.00 - (dlib::length(out_matrix - vout_matrix)*0.50 - 0.20);
-    // slog::info << "out_matrix[0,1,127,510,511]: " 
-    // << "[" << out_matrix(0) << ", " << out_matrix(1) << ", " << out_matrix(127) << ", " << out_matrix(510) << ", " << out_matrix(511) << "] " << slog::endl;
-    // slog::info << "vout_matrix[0,1,127,510,511]: " 
-    // << "[" << vout_matrix(0) << ", " << vout_matrix(1) << ", " << vout_matrix(127) << ", " << vout_matrix(510) << ", " << vout_matrix(511) << "] " << slog::endl;
-    // slog::info << "similarity: " << similarity << slog::endl;
+    float confidence = 1.00 - (dlib::length(out_matrix - vout_matrix)*0.50 - 0.20);
+     
+
+    // std::cout << "out_matrix: " << std::endl;
+    // for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
+    //     std::cout << out_matrix(j) << ", ";
+    //     if(j%10==0){
+    //         std::cout << std::endl;
+    //     }
+    // }
+    // std::cout << std::endl << "vout_matrix: " << std::endl;
+    // for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
+    //     std::cout << vout_matrix(j) << ", ";
+    //     if(j%10==0){
+    //         std::cout << std::endl;
+    //     }
+    // }
+    // std::cout << std::endl;
+    // std::cout << "out_matrix length: " << dlib::length(out_matrix - zero_matrix)<<std::endl;
+    // std::cout << "vout_matrix length: " << dlib::length(vout_matrix - zero_matrix)<<std::endl;
+
+    bool featureVectorIsAllZero,vfeatureVectorIsAllZero;
+    if( dlib::length(out_matrix - zero_matrix) == 0.0) { featureVectorIsAllZero = true; }else{ featureVectorIsAllZero = false; }
+    if( dlib::length(vout_matrix - zero_matrix) == 0.0) { vfeatureVectorIsAllZero = true; }else{ vfeatureVectorIsAllZero = false; }
+    if(featureVectorIsAllZero || vfeatureVectorIsAllZero || confidence < 0.0){ confidence = 0.0; }
+    if(confidence > 1.0 ){ confidence = 1.0; }
+    // similarity = 1.00 - (dlib::length(out_matrix - vout_matrix));
+    // std::cout << "out_matrix[0,1,127,510,511]: " 
+    // << "[" << out_matrix(0) << ", " << out_matrix(1) << ", " << out_matrix(127) << ", " << out_matrix(510) << ", " << out_matrix(511) << "] " << std::endl;
+    // std::cout << "vout_matrix[0,1,127,510,511]: " 
+    // << "[" << vout_matrix(0) << ", " << vout_matrix(1) << ", " << vout_matrix(127) << ", " << vout_matrix(510) << ", " << vout_matrix(511) << "] " << std::endl;
+    // std::cout << "similarity: " << similarity << std::endl;
     // similarity = rand() % 1000 + 1;
+    similarity = confidence;
     return ReturnStatus(ReturnCode::Success);
 }
 
@@ -602,7 +857,7 @@ std::vector<dlib::matrix<float, 0, 1>> NullImplFRVT11::array_to_dlib_1D_matrix(i
 }
 
 std::string NullImplFRVT11::ProduceUUID(){
-    srand(time(NULL));
+    std::srand(time(NULL));
     char strUuid[128];
     sprintf(strUuid, "%x%x-%x-%x-%x-%x%x%x", 
     rand(), rand(),                 // Generates a 64-bit Hex number
@@ -612,4 +867,10 @@ std::string NullImplFRVT11::ProduceUUID(){
     rand(), rand(), rand());        // Generates a 96-bit Hex number
     std::string outputString = strUuid;
     return outputString;
+}
+
+
+void NullImplFRVT11::Deallocator(void* data, size_t length, void* arg)
+{
+	std::free(data);
 }

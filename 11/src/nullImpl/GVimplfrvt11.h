@@ -12,6 +12,17 @@
 #define NULLIMPLFRVT11_H_
 
 #include "frvt11.h"
+#include <fstream>
+#include <utility>
+#include <vector>
+
+#include "tensorflow/c/c_api.h"
+// #include "tensorflow_mtcnn.hpp"
+// #include "mtcnn.hpp"
+// #include "comm_lib.hpp"
+// #include "utils.hpp"
+// #include <unistd.h>
+
 #include <time.h>
 #include <fstream>
 #include <iomanip>
@@ -25,21 +36,32 @@
 #include <mutex>
 #include <iostream>
 #include <ctime>    
+#include <stdio.h>
+// #include <inference_engine.hpp>
 
-#include <inference_engine.hpp>
-
-#include <samples/ocv_common.hpp>
-#include <samples/slog.hpp>
+//  #include <samples/ocv_common.hpp>
+//#include <samples/slog.hpp>
 
 //#include "interactive_face_detection.hpp"
-#include "detectors.hpp"
-#include "face.hpp"
-#include "visualizer.hpp"
-#include <ie_iextension.h>
-#include <ext_list.hpp>
-#define TBB_PREVIEW_GLOBAL_CONTROL 1
-#include <tbb/global_control.h>
+// #include "detectors.hpp"
+// #include "face.hpp"
+// #include "visualizer.hpp"
+// #include <ie_iextension.h>
+// #include <ext_list.hpp>
+// #define TBB_PREVIEW_GLOBAL_CONTROL 1
+// #include <tbb/global_control.h>
+#include <opencv2/opencv.hpp>
+#include "facedetectcnn.h"
+// #include "opencv2/highgui.hpp"
+// #include <opencv2/imgcodecs.hpp>
 
+
+#include "tf_utils.hpp"
+#include <scope_guard.hpp>
+#include <iostream>
+#include <vector>
+
+#define DLIB_JPEG_SUPPORT
 #include <dlib/image_processing/render_face_detections.h>
 #include <dlib/image_processing.h>
 #include <dlib/geometry/rectangle.h>
@@ -53,12 +75,26 @@
 #include <dlib/opencv.h>
 #include <dlib/image_processing/full_object_detection.h>
 #include <dlib/image_transforms.h>
+#include <dlib/image_processing/frontal_face_detector.h>
+#include <dlib/image_saver/save_jpeg.h>
+// #include <dlib/dnn.h>
 
 #define FR_IMAGE_HEIGHT 224
 #define FR_IMAGE_PADDING 25
 #define FR_EMBEDDING_SIZE 512
-#define FR_JITTER_COUNT 10
+#define FR_JITTER_COUNT 0
+#define DETECT_BUFFER_SIZE 0x20000
+// ----------------------------------------------------------------------------------------
 
+// template <long num_filters, typename SUBNET> using con5d = dlib::con<num_filters,5,5,2,2,SUBNET>;
+// template <long num_filters, typename SUBNET> using con5  = dlib::con<num_filters,5,5,1,1,SUBNET>;
+
+// template <typename SUBNET> using downsampler  = dlib::relu<dlib::affine<con5d<32, dlib::relu<dlib::affine<con5d<32, dlib::relu<dlib::affine<con5d<16,SUBNET>>>>>>>>>;
+// template <typename SUBNET> using rcon5  = dlib::relu<dlib::affine<con5<45,SUBNET>>>;
+
+// using net_type = dlib::loss_mmod<dlib::con<1,9,9,1,1,rcon5<rcon5<rcon5<downsampler<dlib::input_rgb_image_pyramid<dlib::pyramid_down<6>>>>>>>>;
+
+// ----------------------------------------------------------------------------------------
 
 int detectFailCount = 0;
 int imgCount = 0;
@@ -102,25 +138,34 @@ private:
     // std::string input_name;
     // std::string output_name;
     //tbb::global_control *tbbControl = NULL;
-    std::string deviceName;
-    FaceDetection *faceDetector = NULL;
-    FacialLandmarksDetection *facialLandmarksDetector = NULL;
-    // --------------------------- 1. Load inference engine instance -------------------------------------
-    InferenceEngine::Core ie;
-    bool bFaceDetectorIsLoaded;
-    bool bFaceLandmarkIsLoaded;
-    // -----------------------------------------------------------------------------------------------------
-    // InferenceEngine::ExecutableNetwork executable_network;
-    InferenceEngine::InferRequest infer_request;
+    // std::string deviceName;
+    // FaceDetection *faceDetector = NULL;
+    // FacialLandmarksDetection *facialLandmarksDetector = NULL;
+    // // --------------------------- 1. Load inference engine instance -------------------------------------
+    // InferenceEngine::Core ie;
+    // bool bFaceDetectorIsLoaded;
+    // bool bFaceLandmarkIsLoaded;
+    // // -----------------------------------------------------------------------------------------------------
+    // // InferenceEngine::ExecutableNetwork executable_network;
+    // InferenceEngine::InferRequest infer_request;
 
 
+    //====================For FD====================//
+    dlib::frontal_face_detector face_input_detector;
+    unsigned char * pBuffer;
+    dlib::shape_predictor sp_5;
+    TF_Graph *graphFD;
+    TF_Session *sessionFD;
+    // net_type net;
+    //===============================================//
 
-    ////////////////////////////////////For FR/////////////////////////////////////
+    //====================For FR====================//
+    TF_Graph *graph;
     // InferenceEngine::Core engine_ptr;
 	// InferenceEngine::InferRequest infer_request;
-    InferenceEngine::CNNNetwork network;
-	std::string network_input_name;
-    static InferenceEngine::ExecutableNetwork::Ptr exe_network;
+    // InferenceEngine::CNNNetwork network;
+	// std::string network_input_name;
+    // static InferenceEngine::ExecutableNetwork::Ptr exe_network;
 	std::vector<std::string> network_OutputName;
 	std::map<std::string, int> OutputName_vs_index;
 	unsigned char* input_image = NULL;
@@ -128,8 +173,12 @@ private:
 	double mean_values[3];
 	double scale_values[3];
     float FR_emb[512];
-    float gender[2];
-    float age[7];
+    dlib::matrix<float, 0, 1> test_matrix1;
+    dlib::matrix<float, 0, 1> test_matrix2;
+    int enrollCount;
+    int faceDetectCount;
+    // float gender[2];
+    // float age[7];
     // int detectFailCount;
     // int imgCount;
 	// std::vector<std::string> Device_List;
@@ -140,6 +189,8 @@ private:
     std::vector <dlib::matrix<dlib::rgb_pixel>> crops;
     std::vector<dlib::matrix<float, 0, 1>> array_to_dlib_1D_matrix(int face_count, float* in_array, int dim_size);
     std::string ProduceUUID();
+    static void Deallocator(void* data, size_t length, void* arg);
+    //===============================================//
 };
 }
 
