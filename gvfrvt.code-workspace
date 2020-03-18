@@ -64,7 +64,8 @@
 			"cstddef": "cpp",
 			"strstream": "cpp",
 			"bitset": "cpp",
-			"cfenv": "cpp"
+			"cfenv": "cpp",
+			"*.ipp": "cpp"
 		}
 	}
 }
