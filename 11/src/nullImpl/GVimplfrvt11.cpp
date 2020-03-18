@@ -27,7 +27,7 @@ NullImplFRVT11::~NullImplFRVT11() {
     //For FD
     //release the buffer
     free(pBuffer);
-    SCOPE_EXIT{ tf_utils::DeleteGraph(graphFD); }; // Auto-delete on scope exit.
+    // SCOPE_EXIT{ tf_utils::DeleteGraph(graphFD); }; // Auto-delete on scope exit.
     // face_input_detector = dlib::get_frontal_face_detector();
     //For FR
     SCOPE_EXIT{ tf_utils::DeleteGraph(graph); }; // Auto-delete on scope exit.
@@ -54,8 +54,8 @@ NullImplFRVT11::initialize(const std::string &configDir)
         // std::string facedetectCNNFileName = configDir + "/geo_vision_face_detect.dat";
         // dlib::deserialize(facedetectCNNFileName) >> net;  
         //LM
-        // std::string landMarkFileName = configDir + "/geo_vision_5_face_landmarks.dat";
-        // dlib::deserialize(landMarkFileName) >> sp_5; //read dlib landmark model
+        std::string landMarkFileName = configDir + "/geo_vision_5_face_landmarks.dat";
+        dlib::deserialize(landMarkFileName) >> sp_5; //read dlib landmark model
         m_JitterCount = FR_JITTER_COUNT;
         // if(!input_image){
         //     input_image = new unsigned char [FR_IMAGE_HEIGHT * FR_IMAGE_HEIGHT *3];
@@ -99,57 +99,40 @@ NullImplFRVT11::createTemplate(
             // saveImgMtx.lock();
             cv::Mat frame = cv::Mat(faces[i].height, faces[i].width, CV_8UC3);
             cv::Mat showframe;
+            cv::Mat resizeframe;
+
             // -------------------------------Set input data----------------------------------------------------
-            std::cout << "frvt imput image height: " << faces[i].height << ", width: " << faces[i].width << ", size: " << faces[i].size() << std::endl;
+            std::cout << "frvt input image height: " << faces[i].height << ", width: " << faces[i].width << ", size: " << faces[i].size() << std::endl;
             
             std::memcpy(frame.data, faces[i].data.get(), faces[i].size() );  
 
 
             frame.copyTo(showframe);
+            
             dlib::matrix<dlib::rgb_pixel> enroll_chip; //original extract chip
             dlib::matrix<dlib::bgr_pixel> enroll_chipBGR; //original extract chip
             std::vector<dlib::point> parts;
             dlib::cv_image<dlib::rgb_pixel> cv_imgFR(frame);
             dlib::matrix<dlib::rgb_pixel> imgFR;
             dlib::assign_image(imgFR, cv_imgFR);
+            dlib::matrix<dlib::rgb_pixel> imgFRLandscape(int(faces[i].height*0.5),int(faces[i].width*0.5));
+            dlib::resize_image(imgFR,imgFRLandscape,dlib::interpolate_bilinear());
+            cv::Mat imgResized = dlib::toMat(imgFRLandscape);
+            // int imgXLength = faces[i].width;
+            // int imgYLength = faces[i].height;
 
-                // saveImgMtx.lock();
-                // string detectFileName = "test.jpg";
-                // dlib::cv_image<dlib::rgb_pixel> cv_temp(frame);
-                // dlib::matrix<dlib::rgb_pixel> dlib_array2d;
-                // dlib::assign_image(dlib_array2d, cv_temp);
-                // dlib::save_jpeg(dlib_array2d,detectFileName,100);
-                // saveImgMtx.unlock();
+            // while((imgXLength > 640 && imgYLength > 360)||(imgXLength > 360 && imgYLength > 640)){
+            //     imgXLength = imgXLength * 0.5;
+            //     imgYLength = imgYLength * 0.5;
+            //     Ratio = Ratio*0.5;
+            //     std::cout << "frvt input image imgXLength: " << imgXLength << ", imgYLength: " << imgYLength  <<"Ratio"<<Ratio<< std::endl;
+            // }
 
-            int longside = imgFR.nr();
-            int shortside = imgFR.nc(); //portrait
-            float xRatio = 0.0;
-            float yRatio = 0.0;
-            bool isLandscape = false;
-            std::vector<dlib::rectangle> face_det;
-            if(imgFR.nr() <imgFR.nc()){
-                longside = imgFR.nc();
-                shortside = imgFR.nr();
-                isLandscape = true; //landscape
-            }
+ 
+            int * pResults = NULL; 
 
-            int resizeLongSide = 640;
-            int resizeShortSide = 360;
+           
 
-
-            dlib::matrix<dlib::rgb_pixel> imgFRPortrait(resizeLongSide,resizeShortSide);
-            dlib::matrix<dlib::rgb_pixel> imgFRLandscape(resizeShortSide,resizeLongSide);
-            if(isLandscape){
-                xRatio = float(imgFR.nc())/float(resizeLongSide);
-                yRatio = float(imgFR.nr())/float(resizeShortSide);
-                dlib::resize_image(imgFR,imgFRLandscape,dlib::interpolate_bilinear());
-                // face_det = face_input_detector(imgFRLandscape);
-            }else{
-                xRatio = float(imgFR.nc())/float(resizeShortSide);
-                yRatio = float(imgFR.nr())/float(resizeLongSide);
-                dlib::resize_image(imgFR,imgFRPortrait,dlib::interpolate_bilinear());
-                // face_det = face_input_detector(imgFRPortrait);
-            }
             // face_det[0].set_bottom(int(face_det[0].bottom()*yRatio));
             // face_det[0].set_left(int(face_det[0].left()*xRatio));
             // face_det[0].set_right(int(face_det[0].right()*xRatio));
@@ -160,9 +143,10 @@ NullImplFRVT11::createTemplate(
             // saveImgMtx.unlock();
             clock_t beginFD = clock();
             std::cout<<"001: "<<std::endl;
-            // std::vector<dlib::rectangle> face_det;
+            std::vector<dlib::rectangle> face_det;
+            face_det.resize(1);
             std::cout<<"002: "<<std::endl;
-            int * pResults = NULL; 
+
 
            
 
@@ -173,18 +157,32 @@ NullImplFRVT11::createTemplate(
             //!!! The input image must be a BGR one (three-channel) instead of RGB
             //!!! DO NOT RELEASE pResults !!!
 
-            pResults = facedetect_cnn(pBuffer, (unsigned char*)(frame.ptr(0)), frame.cols, frame.rows, (int)frame.step);
+            pResults = facedetect_cnn(pBuffer, (unsigned char*)(imgResized.ptr(0)), imgResized.cols, imgResized.rows, (int)imgResized.step);
             int facesDetected = pResults ? *pResults : 0;
             cv::Mat result_image = frame.clone();
+            int xleftEyeCenter = 0;
+            int yleftEyeCenter = 0;
+            int xRightEyeCenter = 0;
+            int yRightEyeCenter = 0;
+            // dlib::full_object_detection shape_5;
+            std::cout<<"003: "<<std::endl;
             //print the detection results
             for(int i = 0; i < (pResults ? *pResults : 0); i++)
             {
                 short * p = ((short*)(pResults+1))+142*i;
                 int confidence = p[0];
-                int x = p[1];
-                int y = p[2];
-                int w = p[3];
-                int h = p[4];
+                int x = int(p[1]*2);
+                int y = int(p[2]*2);
+                int w = int(p[3]*2);
+                int h = int(p[4]*2);
+std::cout<<"004: "<<std::endl;
+                face_det[0].set_bottom(y+h);
+                face_det[0].set_left(x);
+                face_det[0].set_right(x+w);
+                face_det[0].set_top(y);
+std::cout<<"005: "<<std::endl;
+                 std::cout << "[INFO] YSQ::face_det :[" << face_det[0].bottom() << ","<< face_det[0].left() << ","
+                    << face_det[0].right() << ","<< face_det[0].top() << "]"<< std::endl;
                 
                 //show the score of the face. Its range is [0-100]
                 char sScore[256];
@@ -193,12 +191,37 @@ NullImplFRVT11::createTemplate(
                 //draw face rectangle
                 rectangle(result_image, cv::Rect(x, y, w, h), cv::Scalar(0, 255, 0), 2);
                 //draw five face landmarks in different colors
-                cv::circle(result_image, cv::Point(p[5], p[5 + 1]), 1, cv::Scalar(255, 0, 0), 2);
-                cv::circle(result_image, cv::Point(p[5 + 2], p[5 + 3]), 1, cv::Scalar(0, 0, 255), 2);
-                cv::circle(result_image, cv::Point(p[5 + 4], p[5 + 5]), 1, cv::Scalar(0, 255, 0), 2);
-                cv::circle(result_image, cv::Point(p[5 + 6], p[5 + 7]), 1, cv::Scalar(255, 0, 255), 2);
-                cv::circle(result_image, cv::Point(p[5 + 8], p[5 + 9]), 1, cv::Scalar(0, 255, 255), 2);
+                cv::circle(result_image, cv::Point(p[5]*2, p[5 + 1]*2), 1, cv::Scalar(255, 0, 0), 2);
+                cv::circle(result_image, cv::Point(p[5 + 2]*2, p[5 + 3]*2), 1, cv::Scalar(0, 0, 255), 2);
+                cv::circle(result_image, cv::Point(p[5 + 4]*2, p[5 + 5]*2), 1, cv::Scalar(0, 255, 0), 2);
+                cv::circle(result_image, cv::Point(p[5 + 6]*2, p[5 + 7]*2), 1, cv::Scalar(255, 0, 255), 2);
+                cv::circle(result_image, cv::Point(p[5 + 8]*2, p[5 + 9]*2), 1, cv::Scalar(0, 255, 255), 2);
                 
+                cv::putText(result_image, "0", cv::Point(p[5]*2, p[5 + 1]*2), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                cv::putText(result_image, "1", cv::Point(p[5 + 2]*2, p[5 + 3]*2), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                cv::putText(result_image, "2", cv::Point(p[5 + 4]*2, p[5 + 5]*2), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                cv::putText(result_image, "3", cv::Point(p[5 + 6]*2, p[5 + 7]*2), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                cv::putText(result_image, "4", cv::Point(p[5 + 8]*2, p[5 + 9]*2), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+
+
+                // int eyeWidth = int(abs((p[5]*2 - p[5 + 2]))*0.25)
+                // shape_5.part(0).x() = ;
+                // shape_5.part(0).y() = ;
+                // shape_5.part(1).x() = ;
+                // shape_5.part(1).y() = ;
+                // shape_5.part(2).x() = p[5]*2 - eyeWidth;
+                // shape_5.part(2).y() = ;
+                // shape_5.part(3).x() = ;
+                // shape_5.part(3).y() = ;
+                // shape_5.part(4).x() = ;
+                // shape_5.part(4).y() = ;
+
+
+std::cout<<"006: "<<std::endl;
+                xleftEyeCenter = p[5]*2;
+                yleftEyeCenter = p[5 + 1]*2;
+                xRightEyeCenter = p[5 + 2]*2;
+                yRightEyeCenter = p[5 + 3]*2;
                 //print the result
                 // printf("face %d: confidence=%d, [%d, %d, %d, %d] (%d,%d) (%d,%d) (%d,%d) (%d,%d) (%d,%d)\n", 
                 //         i, confidence, x, y, w, h, 
@@ -211,22 +234,22 @@ NullImplFRVT11::createTemplate(
                 dlib::assign_image(dlib_array2d, cv_temp);
                 dlib::save_jpeg(dlib_array2d,detectFileName,100);
                 saveImgMtx.unlock();
-
+std::cout<<"007: "<<std::endl;
             }
 
 
 
 
-            std::cout<<"011: "<<std::endl;
+            std::cout<<"008: "<<std::endl;
 
             clock_t endFD = clock();
             double time_spentFD = (double)(endFD - beginFD) / CLOCKS_PER_SEC;
-            std::cout << "[INFO] FD MTCNN executeㄥtime: "<<time_spentFD<< " sec spent" << std::endl;
+            std::cout << "[INFO] FD YSQ executeㄥtime: "<<time_spentFD<< " sec spent" << std::endl;
             // std::vector<dlib::rectangle> face_det = face_input_detector(imgFR);
             // For multi detected face
             int maxFaceId = 0;
             int maxRectArea = 0;
-            faceDetectCount = face_det.size();
+            faceDetectCount = facesDetected;
             // if(faceDetectCount == 0){
             //     // dlib::matrix<dlib::rgb_pixel> imgFRPry;
             //     // dlib::assign_image(imgFRPry,imgFR);
@@ -261,14 +284,14 @@ NullImplFRVT11::createTemplate(
             // }
             if(faceDetectCount > 0){
                 // cout << "031" << endl;
-                    if(faceDetectCount > 1){
-                    for (size_t j = 0; j < faceDetectCount; j++) {
-                        if(face_det[j].width() * face_det[j].height() >  maxRectArea){
-                            maxRectArea = face_det[j].width() * face_det[j].height();
-                            maxFaceId = j;
-                        }
-                    }
-                }
+                //     if(faceDetectCount > 1){
+                //     for (size_t j = 0; j < faceDetectCount; j++) {
+                //         if(face_det[j].width() * face_det[j].height() >  maxRectArea){
+                //             maxRectArea = face_det[j].width() * face_det[j].height();
+                //             maxFaceId = j;
+                //         }
+                //     }
+                // }
                 //====================Do dlib Landmark====================================
                 dlib::full_object_detection shape_5 = sp_5(imgFR, face_det[0]);
                 cv::Point pt1(face_det[maxFaceId].left(), face_det[maxFaceId].top());
@@ -276,14 +299,16 @@ NullImplFRVT11::createTemplate(
                 cv::Point pt2(face_det[maxFaceId].right(), face_det[maxFaceId].bottom());
                 // These two calls...
                 cv::rectangle(showframe, pt1, pt2, cv::Scalar(0, 0, 255));
-
+std::cout<<"009: "<<std::endl;
                 // --------------------------- Assign Landmark for eye center----------------------------
                 //dlibLandmark leftEye:2 3 rightEye:1 0 nosePhiltrum:4
-                int xleftEyeCenter = int ((shape_5.part(2).x() + shape_5.part(3).x())*0.5);
-                int yleftEyeCenter = int ((shape_5.part(2).y() + shape_5.part(3).y())*0.5);
+                // cv::putText(result_image, "0", cv::Point(p[5]*2, p[5 + 1]*2), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                // cv::putText(result_image, "1", cv::Point(p[5 + 2]*2, p[5 + 3]*2), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                // int xleftEyeCenter = int ((shape_5.part(2).x() + shape_5.part(3).x())*0.5);
+                // int yleftEyeCenter = int ((shape_5.part(2).y() + shape_5.part(3).y())*0.5);
                 cv::circle(showframe, cv::Point(xleftEyeCenter, yleftEyeCenter), 1 + static_cast<int>(0.012 * face_det[maxFaceId].width()), cv::Scalar(255, 0, 0), -1);
-                int xRightEyeCenter = int ((shape_5.part(0).x() + shape_5.part(1).x())*0.5);
-                int yRightEyeCenter = int ((shape_5.part(0).y() + shape_5.part(1).y())*0.5);
+                // int xRightEyeCenter = int ((shape_5.part(0).x() + shape_5.part(1).x())*0.5);
+                // int yRightEyeCenter = int ((shape_5.part(0).y() + shape_5.part(1).y())*0.5);
                 cv::circle(showframe, cv::Point(xRightEyeCenter, yRightEyeCenter), 1 + static_cast<int>(0.012 * face_det[maxFaceId].width()), cv::Scalar(0, 0, 255), -1);
                 eyeCoordinates.clear();
                 eyeCoordinates.shrink_to_fit();
@@ -299,22 +324,22 @@ NullImplFRVT11::createTemplate(
                 // dlib::save_jpeg(dlib_array2d,detectFileName,100);
                 // cv::imwrite(detectFileName, showframe);
                 // saveImgMtx.unlock();
-                
+                std::cout<<"010: "<<std::endl;
                 //-------------------------------Crop face image================================
                 dlib::extract_image_chip(imgFR, dlib::get_face_chip_details(shape_5, FR_IMAGE_HEIGHT, FR_IMAGE_PADDING*0.01), enroll_chip);
                 dlib::assign_image(enroll_chipBGR, enroll_chip);
                 // if(enrollCount==0){
-                //     cv::Mat enrollChipMat = dlib::toMat(enroll_chip);
-                //     saveImgMtx.lock();
-                //     std::time_t t = std::time(0);   // get time now
-                //     std::tm* now = std::localtime(&t);
-                //     std::srand((unsigned) time(&t));
-                //     int rndNumber = rand() % 10000;
-                //     string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
-                //     dlib::save_jpeg(enroll_chip,chipFileName,100);
-                // // }
-                // // cv::imwrite(chipFileName, enrollChipMat);
-                // saveImgMtx.unlock();
+                    // cv::Mat enrollChipMat = dlib::toMat(enroll_chip);
+                    saveImgMtx.lock();
+                    std::time_t t = std::time(0);   // get time now
+                    std::tm* now = std::localtime(&t);
+                    std::srand((unsigned) time(&t));
+                    int rndNumber = rand() % 10000;
+                    string chipFileName = "FDresults/chip(" + ProduceUUID() + ").jpg";
+                    dlib::save_jpeg(enroll_chip,chipFileName,100);
+                // }
+                // cv::imwrite(chipFileName, enrollChipMat);
+                saveImgMtx.unlock();
                 // cv::waitKey(300);
                 // cv::destroyAllWindows();
                 // cout << "06" << endl;
@@ -345,8 +370,8 @@ NullImplFRVT11::createTemplate(
                 cropsCount = 0;
             }
 
-            // cout << "07" << endl;
-            
+
+            std::cout<<"011: "<<std::endl;
 
             for (int i = 0; i < cropsCount; i++)
             {
@@ -429,7 +454,7 @@ NullImplFRVT11::createTemplate(
                     input_data[i]=float(input_data[i] - normalizeInput)/normalizeInput;
                     // std::cout<<" input_dataPost: "<<input_data[i]<<std::endl;
                 }
-
+std::cout<<"012: "<<std::endl;
                 // dimensions
                 const std::vector<std::int64_t> input_dims = { 1, 224,224,3 };
                 // Tensors:
@@ -457,7 +482,7 @@ NullImplFRVT11::createTemplate(
                 // get the data:
                 const std::vector<std::vector<float>> dataOutputResults = tf_utils::GetTensorsData<float>( output_tensors );
                 // cout<< "dataOutputResults.size : "<< dataOutputResults.size()<<", dataOutputResults[0].size" << dataOutputResults[0].size()<<endl;
-
+std::cout<<"013: "<<std::endl;
 
                 // std::vector<TF_Output> 	input_tensors, output_tensors;
                 // std::vector<TF_Tensor*> input_values, output_values;
@@ -526,7 +551,7 @@ NullImplFRVT11::createTemplate(
                     for(int i=0;i<FR_EMBEDDING_SIZE;i++){
                         jitterFR_emb[i] = dataOutputResults[0][i];
                     }
-
+std::cout<<"014: "<<std::endl;
                     // float sum = 0;
                     // float map[FR_EMBEDDING_SIZE];
                     // memset(map,0.0,FR_EMBEDDING_SIZE*__SIZEOF_FLOAT__);
@@ -595,7 +620,7 @@ NullImplFRVT11::createTemplate(
                 // << "[" << FR_emb[0] << ", " << FR_emb[1] << ", " << FR_emb[127] << ", " << FR_emb[510] << ", " << FR_emb[511] << "] " << std::endl;
 
             // } //detected faces vector array
-
+std::cout<<"015: "<<std::endl;
             std::vector<float> fv;
             if(faceDetectCount == 0){ //for no FD found give false eyes detected bool and zero coordinates
                 eyeCoordinates.push_back(EyePair(false, false, 0, 0, 0, 0));
@@ -670,7 +695,7 @@ NullImplFRVT11::createTemplate(
             std::vector <dlib::matrix<float, 0, 1>>().swap(SVM_descriptor);
             std::vector <dlib::point>().swap(parts);
             std::vector <dlib::rectangle>().swap(face_det);
-
+std::cout<<"016: "<<std::endl;
         } //faces vect`or size array
         clock_t end = clock();
         double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
