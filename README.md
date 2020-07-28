@@ -1,7 +1,10 @@
 Add python code to validate our api implement with FAR & FRR:
 [validate.py](11/validate.py)
 
+```
+cd 11
 run ./compileAndRunFrvt.sh first
+```
 
 [SUCCESS] NIST frvt validation for confidence:  0.73 
 
