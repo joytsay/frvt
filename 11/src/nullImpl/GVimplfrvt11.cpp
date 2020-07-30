@@ -727,19 +727,27 @@ NullImplFRVT11::matchTemplates(
 {
     float *featureVector = (float *)enrollTemplate.data();
     float *vfeatureVector = (float *)verifTemplate.data();
-    dlib::matrix<float, 0, 1> out_matrix;
-    dlib::matrix<float, 0, 1> vout_matrix;
-    dlib::matrix<float, 0, 1> zero_matrix;
-    out_matrix.set_size(FR_EMBEDDING_SIZE);
-    vout_matrix.set_size(FR_EMBEDDING_SIZE);
-    zero_matrix.set_size(FR_EMBEDDING_SIZE);
+    // dlib::matrix<float, 0, 1> out_matrix;
+    // dlib::matrix<float, 0, 1> vout_matrix;
+    // dlib::matrix<float, 0, 1> zero_matrix;
+    // out_matrix.set_size(FR_EMBEDDING_SIZE);
+    // vout_matrix.set_size(FR_EMBEDDING_SIZE);
+    // zero_matrix.set_size(FR_EMBEDDING_SIZE);
 
+    float confidence = 0;
     for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
-        out_matrix(j) = featureVector[j];
-        vout_matrix(j) = vfeatureVector[j];
-        zero_matrix(j) = 0.0;
+        confidence = confidence + std::abs(featureVector[j] - vfeatureVector[j]);
     }
-    float confidence = 1.00 - (dlib::length(out_matrix - vout_matrix)*0.50 - 0.20);
+    similarity = confidence;
+
+
+
+    // for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
+    //     out_matrix(j) = featureVector[j];
+    //     vout_matrix(j) = vfeatureVector[j];
+    //     zero_matrix(j) = 0.0;
+    // }
+    // float confidence = 1.00 - (dlib::length(out_matrix - vout_matrix)*0.50 - 0.20);
      
 
     // std::cout << "out_matrix: " << std::endl;
@@ -760,11 +768,12 @@ NullImplFRVT11::matchTemplates(
     // std::cout << "out_matrix length: " << dlib::length(out_matrix - zero_matrix)<<std::endl;
     // std::cout << "vout_matrix length: " << dlib::length(vout_matrix - zero_matrix)<<std::endl;
 
-    bool featureVectorIsAllZero,vfeatureVectorIsAllZero;
-    if( dlib::length(out_matrix - zero_matrix) == 0.0) { featureVectorIsAllZero = true; }else{ featureVectorIsAllZero = false; }
-    if( dlib::length(vout_matrix - zero_matrix) == 0.0) { vfeatureVectorIsAllZero = true; }else{ vfeatureVectorIsAllZero = false; }
-    if(featureVectorIsAllZero || vfeatureVectorIsAllZero || confidence < 0.0){ confidence = 0.0; }
-    if(confidence > 1.0 ){ confidence = 1.0; }
+    // bool featureVectorIsAllZero,vfeatureVectorIsAllZero;
+    // if( dlib::length(out_matrix - zero_matrix) == 0.0) { featureVectorIsAllZero = true; }else{ featureVectorIsAllZero = false; }
+    // if( dlib::length(vout_matrix - zero_matrix) == 0.0) { vfeatureVectorIsAllZero = true; }else{ vfeatureVectorIsAllZero = false; }
+    // if(featureVectorIsAllZero || vfeatureVectorIsAllZero || confidence < 0.0){ confidence = 0.0; }
+    // if(confidence > 1.0 ){ confidence = 1.0; }
+
     // similarity = 1.00 - (dlib::length(out_matrix - vout_matrix));
     // std::cout << "out_matrix[0,1,127,510,511]: " 
     // << "[" << out_matrix(0) << ", " << out_matrix(1) << ", " << out_matrix(127) << ", " << out_matrix(510) << ", " << out_matrix(511) << "] " << std::endl;
@@ -772,7 +781,7 @@ NullImplFRVT11::matchTemplates(
     // << "[" << vout_matrix(0) << ", " << vout_matrix(1) << ", " << vout_matrix(127) << ", " << vout_matrix(510) << ", " << vout_matrix(511) << "] " << std::endl;
     // std::cout << "similarity: " << similarity << std::endl;
     // similarity = rand() % 1000 + 1;
-    similarity = confidence;
+    // similarity = confidence;
     return ReturnStatus(ReturnCode::Success);
 }
 
