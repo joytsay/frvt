@@ -5,7 +5,6 @@ bin/
 *.log
 *.bin
 *.jpg
-*.ppm
 FAR/
 FRR/
 detectFail/
@@ -21,3 +20,4 @@ libfrvt_11_*_???.so
 11/config/geo_vision_5_face_landmarks.dat
 11/config/09-02_02-45.pb
 11/lib/
+*.so
