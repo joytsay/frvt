@@ -21,3 +21,15 @@ libfrvt_11_*_???.so
 11/config/09-02_02-45.pb
 11/lib/
 *.so
+*.ppm
+11/input
+11/pnas
+*.txt
+11/GIboxPlot.png
+11/NISTplot.ipynb
+11/.ipynb_checkpoints/NISTplot-checkpoint.ipynb
+11/config/123/09-02_02-45.pb
+11/input/enroll.txt
+11/input/match.txt
+11/input/verif.txt
+11/src/nullImpl/.ipynb_checkpoints/GVimplfrvt11-checkpoint.cpp

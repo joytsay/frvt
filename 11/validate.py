@@ -36,10 +36,17 @@ def main():
     FR_img_dir = "common/images"
     FAR_dir = "11/FAR"
     FRR_dir = "11/FRR"
+    Result_dir = "11/Result"
     enrollId, enrollImg= load_index_lists(FR_data_dir,"enroll.log")
     verifId, verifImg = load_index_lists(FR_data_dir,"verif.log")
     matchScore = load_score_lists(FR_data_dir, "match.log")
     for i, score in enumerate(matchScore):
+        enrollDestFileName = str(unknownToKnown) + "_enrollLine(" + str(i+2) + ")_score("  + str(score) + ")_" + enrollImg[i]
+        shutil.copy(os.path.join(FR_img_dir,enrollImg[i]), 
+            os.path.join(Result_dir,enrollDestFileName))
+        verifDestFileName = str(unknownToKnown) + "_verifLine(" + str(i+2) + ")_score("  + str(score) + ")_" + verifImg[i]
+        shutil.copy(os.path.join(FR_img_dir,verifImg[i]),
+            os.path.join(Result_dir,verifDestFileName))
         if float(score) >= FRconfidence:
             if enrollId[i] == verifId[i]:
                 Known += 1

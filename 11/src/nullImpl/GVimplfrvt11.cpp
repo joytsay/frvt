@@ -38,6 +38,8 @@ NullImplFRVT11::initialize(const std::string &configDir)
 {
 	try {
         enrollCount = 0; 
+        faceFeatureCount = 0;
+        int rndNumber = 0;
         //FD
         //pBuffer is used in the detection functions.
         //If you call functions in multiple threads, please create one buffer for each thread!
@@ -235,7 +237,7 @@ NullImplFRVT11::createTemplate(
             // std::cout<<"008: "<<std::endl;
 
             clock_t endFD = clock();
-            double time_spentFD = (double)(endFD - beginFD) / CLOCKS_PER_SEC;
+            // double time_spentFD = (double)(endFD - beginFD) / CLOCKS_PER_SEC;
             // std::cout << "[INFO] FD YSQ execute time: "<<time_spentFD<< " sec spent" << std::endl;
             // std::vector<dlib::rectangle> face_det = face_input_detector(imgFR);
             // For multi detected face
@@ -320,16 +322,19 @@ NullImplFRVT11::createTemplate(
                 //-------------------------------Crop face image================================
                 dlib::extract_image_chip(imgFR, dlib::get_face_chip_details(shape_5, FR_IMAGE_HEIGHT, FR_IMAGE_PADDING*0.01), enroll_chip);
                 dlib::assign_image(enroll_chipBGR, enroll_chip);
-                // if(enrollCount==0){
-                    // cv::Mat enrollChipMat = dlib::toMat(enroll_chip);
-                //     saveImgMtx.lock();
-                //     std::time_t t = std::time(0);   // get time now
-                //     std::tm* now = std::localtime(&t);
-                //     std::srand((unsigned) time(&t));
-                //     int rndNumber = rand() % 10000;
-                //     string chipFileName = "FDresults/chip(" + uuidName + ").jpg";
-                //     dlib::save_jpeg(enroll_chip,chipFileName,100);
-                // // }
+
+                //for Bossun Debug save chip
+                cv::Mat enrollChipMat = dlib::toMat(enroll_chip);
+                saveImgMtx.lock();
+                std::time_t t = std::time(0);   // get time now
+                std::tm* now = std::localtime(&t);
+                std::srand((unsigned) time(&t));
+                rndNumber = rand() % 10000;
+                string chipFileName = "features/chip(" + to_string(faceFeatureCount) + ")_" + to_string(rndNumber) + ".jpg";
+                dlib::save_jpeg(enroll_chip,chipFileName,100);
+                saveImgMtx.unlock();
+                //for Bossun Debug save chip
+                
                 // // cv::imwrite(chipFileName, enrollChipMat);
                 // saveImgMtx.unlock();
                 // cv::waitKey(300);
@@ -471,8 +476,8 @@ NullImplFRVT11::createTemplate(
                 clock_t beginFR = clock();
                 const TF_Code code = tf_utils::RunSession( session, input_ops, input_tensors, out_ops, output_tensors );
                 clock_t endFR = clock();
-                double time_spentFD = (double)(endFR - beginFR) / CLOCKS_PER_SEC;
-                // std::cout << "[INFO] FR TF execute time: "<<time_spentFD<< " sec spent" << std::endl;
+                // double time_spentFR = (double)(endFR - beginFR) / CLOCKS_PER_SEC;
+                // std::cout << "[INFO] FR TF execute time: "<<time_spentFR<< " sec spent" << std::endl;
                 SCOPE_EXIT{ tf_utils::DeleteSession(session); }; // Auto-delete on scope exit.
                 // get the data:
                 const std::vector<std::vector<float>> dataOutputResults = tf_utils::GetTensorsData<float>( output_tensors );
@@ -597,6 +602,21 @@ NullImplFRVT11::createTemplate(
             } //jitter cropsCount
             //     // -----------------------------------------------------------------------------------------------------
                 dlib::matrix<float, 0, 1> temp_mat = mean(mat(SVM_descriptor));
+
+                //for Bossun Debug save vector to txt for debug
+                // saveImgMtx.lock();
+                // char optxt_path[512];
+                // sprintf(optxt_path, "features/chip(%d)_%d.txt",faceFeatureCount,rndNumber);
+                // ofstream outputFile;
+                // outputFile.open(optxt_path, ofstream::app);
+                // if (outputFile.is_open()){
+				// 	copy(SVM_descriptor.end() - 1, SVM_descriptor.end(), ostream_iterator<dlib::matrix<float, 0, 1>>(outputFile, "\n"));
+				// 	outputFile << endl;
+                // outputFile.close();
+                // faceFeatureCount++;
+                // saveImgMtx.unlock();
+                //for Bossun Debug save vector to txt for debug
+
                 // std::vector<dlib::matrix<float, 0, 1>> EnrollDescriptor;
                 // cout << "dlib::length(temp_mat): " << dlib::length(temp_mat) << std::endl;
                 // int normalizeLength = dlib::length(temp_mat) < 1 ? 1 : dlib::length(temp_mat);
@@ -693,14 +713,14 @@ NullImplFRVT11::createTemplate(
 // std::cout<<"016: "<<std::endl;
         } //faces vect`or size array
         clock_t end = clock();
-        double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+        // double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
         // std::cout << "[INFO] NIST createTemplate execute time: "<<time_spent<< " sec spent" << std::endl;
     } catch (const std::exception & ex) {
         std::cerr << ex.what() << std::endl;
-        // return ReturnStatus(ReturnCode::UnknownError);
+        return ReturnStatus(ReturnCode::UnknownError);
     }
     // if(faceDetectCount < 1){
-        // return ReturnStatus(ReturnCode::FaceDetectionError);
+    //     return ReturnStatus(ReturnCode::FaceDetectionError);
     // }else{
         // std::cout << "faceDetectCount: " << faceDetectCount <<std::endl;
 
@@ -714,8 +734,16 @@ NullImplFRVT11::createTemplate(
             //     }
             // }
         // }
-
+    if(faceDetectCount < 1){
+        // std::cout << "[ReturnCode] FaceDetectionError "<< std::endl;
+        mtx.unlock();
+        return 
+        (ReturnCode::FaceDetectionError);
+    }else{
+        // std::cout << "[ReturnCode] Success ";
+        mtx.unlock();
         return ReturnStatus(ReturnCode::Success);
+    }
     // }
 }
 
@@ -725,30 +753,45 @@ NullImplFRVT11::matchTemplates(
         const std::vector<uint8_t> &enrollTemplate,
         double &similarity)
 {
+    mtx.lock();
     float *featureVector = (float *)enrollTemplate.data();
     float *vfeatureVector = (float *)verifTemplate.data();
-    // dlib::matrix<float, 0, 1> out_matrix;
-    // dlib::matrix<float, 0, 1> vout_matrix;
-    // dlib::matrix<float, 0, 1> zero_matrix;
-    // out_matrix.set_size(FR_EMBEDDING_SIZE);
-    // vout_matrix.set_size(FR_EMBEDDING_SIZE);
-    // zero_matrix.set_size(FR_EMBEDDING_SIZE);
+    dlib::matrix<float, 0, 1> out_matrix;
+    dlib::matrix<float, 0, 1> vout_matrix;
+    dlib::matrix<float, 0, 1> zero_matrix;
+    out_matrix.set_size(FR_EMBEDDING_SIZE);
+    vout_matrix.set_size(FR_EMBEDDING_SIZE);
+    zero_matrix.set_size(FR_EMBEDDING_SIZE);
 
-    float confidence = 0;
-    for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
-        confidence = confidence + std::abs(featureVector[j] - vfeatureVector[j]);
-    }
-    similarity = confidence;
-
-
-
+    // float confidence = 0;
     // for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
-    //     out_matrix(j) = featureVector[j];
-    //     vout_matrix(j) = vfeatureVector[j];
-    //     zero_matrix(j) = 0.0;
+    //     confidence = confidence + std::abs(featureVector[j] - vfeatureVector[j]);
     // }
-    // float confidence = 1.00 - (dlib::length(out_matrix - vout_matrix)*0.50 - 0.20);
-     
+    // similarity = 1.0/double(confidence);
+
+
+    for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
+        out_matrix(j) = featureVector[j];
+        vout_matrix(j) = vfeatureVector[j];
+        zero_matrix(j) = 0.0;
+    }
+
+    bool bFeatureError = false;
+    if(dlib::length(out_matrix - zero_matrix) == 0 || 
+    dlib::length(vout_matrix - zero_matrix) == 0){
+        bFeatureError = true;
+    }
+
+    if(bFeatureError){
+        similarity = 0;
+        mtx.unlock();
+        return ReturnStatus(ReturnCode::VerifTemplateError);
+    }else{
+        similarity = 1.00 - (dlib::length(out_matrix - vout_matrix)*0.50 - 0.20);
+        mtx.unlock();
+        return ReturnStatus(ReturnCode::Success);
+    }
+    
 
     // std::cout << "out_matrix: " << std::endl;
     // for (int j = 0; j < FR_EMBEDDING_SIZE; j++){
@@ -781,8 +824,6 @@ NullImplFRVT11::matchTemplates(
     // << "[" << vout_matrix(0) << ", " << vout_matrix(1) << ", " << vout_matrix(127) << ", " << vout_matrix(510) << ", " << vout_matrix(511) << "] " << std::endl;
     // std::cout << "similarity: " << similarity << std::endl;
     // similarity = rand() % 1000 + 1;
-    // similarity = confidence;
-    return ReturnStatus(ReturnCode::Success);
 }
 
 std::shared_ptr<Interface>
