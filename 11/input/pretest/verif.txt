@@ -1,0 +1,4 @@
+2 preTestFAR/ppm/2.ppm MUGSHOT
+4 preTestFAR/ppm/4.ppm MUGSHOT
+6 preTestFAR/ppm/6.ppm MUGSHOT
+8 preTestFAR/ppm/8.ppm MUGSHOT

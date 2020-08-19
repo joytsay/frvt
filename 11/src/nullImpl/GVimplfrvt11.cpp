@@ -91,6 +91,7 @@ NullImplFRVT11::createTemplate(
 {
     try {
         clock_t begin = clock();
+        std::tm* now;
         for (unsigned int i=0; i<faces.size(); i++) {
             mtx.lock();
             // cout << "00" << endl;;
@@ -325,14 +326,15 @@ NullImplFRVT11::createTemplate(
 
                 //for Bossun Debug save chip
                 cv::Mat enrollChipMat = dlib::toMat(enroll_chip);
-                saveImgMtx.lock();
+                debugImgMtx.lock();
                 std::time_t t = std::time(0);   // get time now
-                std::tm* now = std::localtime(&t);
+                now = std::localtime(&t);
                 std::srand((unsigned) time(&t));
-                rndNumber = rand() % 10000;
-                string chipFileName = "features/chip(" + to_string(faceFeatureCount) + ")_" + to_string(rndNumber) + ".jpg";
+                int randNum = rand() % 10000;
+                char chipFileName[512];
+				sprintf(chipFileName,"features/chip(%d)_(%d).jpg",faceFeatureCount,randNum);
                 dlib::save_jpeg(enroll_chip,chipFileName,100);
-                saveImgMtx.unlock();
+                debugImgMtx.unlock();
                 //for Bossun Debug save chip
                 
                 // // cv::imwrite(chipFileName, enrollChipMat);
@@ -481,6 +483,27 @@ NullImplFRVT11::createTemplate(
                 SCOPE_EXIT{ tf_utils::DeleteSession(session); }; // Auto-delete on scope exit.
                 // get the data:
                 const std::vector<std::vector<float>> dataOutputResults = tf_utils::GetTensorsData<float>( output_tensors );
+
+
+                //for Bossun Debug save vector to txt for debug
+                debugTxtMtx.lock();
+				char filePath[512];
+                // int featureCount = 0;
+                int _randNum = rand() % 10000;
+				sprintf(filePath,"features/chip(%d)_(%d).txt",faceFeatureCount, _randNum);
+				std::ofstream outputfile(filePath, std::ofstream::out | std::ofstream::app);
+				for (int i=0; i<512;i++){
+                    outputfile << dataOutputResults[0][i]<<endl;
+                    // cout<<"featureCount: "<<featureCount<<"dataOutputResults[0][i]: "<<dataOutputResults[0][i]<<endl;
+                    // featureCount++;
+				}
+                outputfile << " "<< endl <<" "<< endl <<" "<< endl;
+                faceFeatureCount++;
+				outputfile.close();
+                debugTxtMtx.unlock();
+                //for Bossun Debug save vector to txt for debug
+
+
                 // cout<< "dataOutputResults.size : "<< dataOutputResults.size()<<", dataOutputResults[0].size" << dataOutputResults[0].size()<<endl;
 // std::cout<<"013: "<<std::endl;
 
@@ -602,20 +625,6 @@ NullImplFRVT11::createTemplate(
             } //jitter cropsCount
             //     // -----------------------------------------------------------------------------------------------------
                 dlib::matrix<float, 0, 1> temp_mat = mean(mat(SVM_descriptor));
-
-                //for Bossun Debug save vector to txt for debug
-                // saveImgMtx.lock();
-                // char optxt_path[512];
-                // sprintf(optxt_path, "features/chip(%d)_%d.txt",faceFeatureCount,rndNumber);
-                // ofstream outputFile;
-                // outputFile.open(optxt_path, ofstream::app);
-                // if (outputFile.is_open()){
-				// 	copy(SVM_descriptor.end() - 1, SVM_descriptor.end(), ostream_iterator<dlib::matrix<float, 0, 1>>(outputFile, "\n"));
-				// 	outputFile << endl;
-                // outputFile.close();
-                // faceFeatureCount++;
-                // saveImgMtx.unlock();
-                //for Bossun Debug save vector to txt for debug
 
                 // std::vector<dlib::matrix<float, 0, 1>> EnrollDescriptor;
                 // cout << "dlib::length(temp_mat): " << dlib::length(temp_mat) << std::endl;

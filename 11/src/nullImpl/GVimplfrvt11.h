@@ -98,8 +98,7 @@
 
 int detectFailCount = 0;
 int imgCount = 0;
-std::mutex mtx;
-std::mutex saveImgMtx;
+
 
 /*
  * Declare the implementation class of the FRVT 1:1 Interface
@@ -133,6 +132,8 @@ public:
 private:
     std::string configDir;
     static const int featureVectorSize{FR_EMBEDDING_SIZE};
+    std::mutex mtx;
+    std::mutex saveImgMtx;
     // Some other members
     //unsigned char* input_image = NULL;
     // std::string input_name;
@@ -178,7 +179,8 @@ private:
     int enrollCount;
     int faceDetectCount;
     int faceFeatureCount;
-    int rndNumber;
+    std::mutex debugImgMtx;
+    std::mutex debugTxtMtx;
     // float gender[2];
     // float age[7];
     // int detectFailCount;

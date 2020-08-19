@@ -11,7 +11,7 @@ detectFail/
 validation/
 libfrvt_11_*_???.so
 *.gpg
-*_.txt
+*).txt
 11/paticipantFingerprint.txt
 11/validateScore.txt
 11/config/#38_asian_multi_task_10.xml
@@ -22,11 +22,8 @@ libfrvt_11_*_???.so
 11/lib/
 *.so
 *.ppm
-11/input
 11/pnas
-*.txt
 11/GIboxPlot.png
-11/NISTplot.ipynb
 11/.ipynb_checkpoints/NISTplot-checkpoint.ipynb
 11/config/123/09-02_02-45.pb
 11/input/enroll.txt
