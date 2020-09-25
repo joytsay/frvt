@@ -30,7 +30,7 @@ kill -9 $(ps -aef | grep "count_thread" | awk '{ print $2 }') 2> /dev/null
 
 configDir=config
 if [ ! -e "$configDir" ]; then
-	echo "${bold}[ERROR] Missing ./$configDir folder!${normal}"
+	echo "${bold}[ERROR] Missing $configDir folder!${normal}"
 	exit $failure	
 fi
 
