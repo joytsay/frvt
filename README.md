@@ -1,26 +1,28 @@
-Add python code to validate our api implement with FAR & FRR:
-[validate.py](11/validate.py)
+Python code to test NIST frvt accuracy of MUGSHOT &amp; pnas datasets
 
 ```
 cd 11
-run ./compileAndRunFrvt.sh first
+./compileAndRunFrvt.sh
+pip install -r requirements.txt
+python plot.py
 ```
 
-[SUCCESS] NIST frvt validation for confidence:  0.73 
+* NIST comes with the MUGSHOT dataset for testing:
+  * 653 pairs (1306 img ppm files)
+* pnas is also used for quick verification:
+  * 20 pairs (12 Genuine(G) pairs & 8 Imposter(I) pairs)
+* Additional tensorflow FR model & lib/*.so need to be downloaded seperately:
+  * 09-02_02-45.pb
 
-All count:  653 
+## G-I Similarity box scatter chart
 
-Known:  325 
+* MUGSHOT:
 
-Unknown:  264 
+![Alt text](11/GIboxPlot.png?raw=true "Title")
 
-knownToUnknown:  64 
+* pnas:
 
-unknownToKnown 0 
-
-FAR:  0.0 %
-
-FRR:  9.80091883614089 %
+![Alt text](11/GIboxPlotPNAS.png?raw=true "Title")
 
 
 # Face Recognition Vendor Test (FRVT) Validation Packages

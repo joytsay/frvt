@@ -30,6 +30,7 @@ NullImplFRVT11::~NullImplFRVT11() {
     // SCOPE_EXIT{ tf_utils::DeleteGraph(graphFD); }; // Auto-delete on scope exit.
     // face_input_detector = dlib::get_frontal_face_detector();
     //For FR
+    SCOPE_EXIT{ tf_utils::DeleteSession(session); }; // Auto-delete on scope exit.eleteGraph(graph); }; // Auto-delete on scope exit.
     SCOPE_EXIT{ tf_utils::DeleteGraph(graph); }; // Auto-delete on scope exit.
 }
 
@@ -75,6 +76,7 @@ NullImplFRVT11::initialize(const std::string &configDir)
         }
         mean_values[0]  = mean_values[1]  = mean_values[2]  = 255.0*0.5;
 	    scale_values[0] = scale_values[1] = scale_values[2] = 255.0*0.5;
+        session = NULL;
         // -----------------------------------------------------------------------------------------------------
     } catch (const std::exception & ex) {
         std::cerr << ex.what() << std::endl;
@@ -174,23 +176,23 @@ NullImplFRVT11::createTemplate(
                     // << face_det[0].right() << ","<< face_det[0].top() << "]"<< std::endl;
                 
                 //show the score of the face. Its range is [0-100]
-                char sScore[256];
-                snprintf(sScore, 256, "%d", confidence);
-                cv::putText(result_image, sScore, cv::Point(x, y-3), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
-                //draw face rectangle
-                rectangle(result_image, cv::Rect(x, y, w, h), cv::Scalar(0, 255, 0), 2);
-                //draw five face landmarks in different colors
-                cv::circle(result_image, cv::Point(int(p[5]*Ratio), int(p[5 + 1]*Ratio)), 1, cv::Scalar(255, 0, 0), 2);
-                cv::circle(result_image, cv::Point(int(p[5 + 2]*Ratio), int(p[5 + 3]*Ratio)), 1, cv::Scalar(0, 0, 255), 2);
-                cv::circle(result_image, cv::Point(int(p[5 + 4]*Ratio), int(p[5 + 5]*Ratio)), 1, cv::Scalar(0, 255, 0), 2);
-                cv::circle(result_image, cv::Point(int(p[5 + 6]*Ratio), int(p[5 + 7]*Ratio)), 1, cv::Scalar(255, 0, 255), 2);
-                cv::circle(result_image, cv::Point(int(p[5 + 8]*Ratio), int(p[5 + 9]*Ratio)), 1, cv::Scalar(0, 255, 255), 2);
+                // char sScore[256];
+                // snprintf(sScore, 256, "%d", confidence);
+                // cv::putText(result_image, sScore, cv::Point(x, y-3), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                // //draw face rectangle
+                // rectangle(result_image, cv::Rect(x, y, w, h), cv::Scalar(0, 255, 0), 2);
+                // //draw five face landmarks in different colors
+                // cv::circle(result_image, cv::Point(int(p[5]*Ratio), int(p[5 + 1]*Ratio)), 1, cv::Scalar(255, 0, 0), 2);
+                // cv::circle(result_image, cv::Point(int(p[5 + 2]*Ratio), int(p[5 + 3]*Ratio)), 1, cv::Scalar(0, 0, 255), 2);
+                // cv::circle(result_image, cv::Point(int(p[5 + 4]*Ratio), int(p[5 + 5]*Ratio)), 1, cv::Scalar(0, 255, 0), 2);
+                // cv::circle(result_image, cv::Point(int(p[5 + 6]*Ratio), int(p[5 + 7]*Ratio)), 1, cv::Scalar(255, 0, 255), 2);
+                // cv::circle(result_image, cv::Point(int(p[5 + 8]*Ratio), int(p[5 + 9]*Ratio)), 1, cv::Scalar(0, 255, 255), 2);
                 
-                cv::putText(result_image, "0", cv::Point(int(p[5]*Ratio), int(p[5 + 1]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
-                cv::putText(result_image, "1", cv::Point(int(p[5 + 2]*Ratio), int(p[5 + 3]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
-                cv::putText(result_image, "2", cv::Point(int(p[5 + 4]*Ratio), int(p[5 + 5]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
-                cv::putText(result_image, "3", cv::Point(int(p[5 + 6]*Ratio), int(p[5 + 7]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
-                cv::putText(result_image, "4", cv::Point(int(p[5 + 8]*Ratio), int(p[5 + 9]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                // cv::putText(result_image, "0", cv::Point(int(p[5]*Ratio), int(p[5 + 1]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                // cv::putText(result_image, "1", cv::Point(int(p[5 + 2]*Ratio), int(p[5 + 3]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                // cv::putText(result_image, "2", cv::Point(int(p[5 + 4]*Ratio), int(p[5 + 5]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                // cv::putText(result_image, "3", cv::Point(int(p[5 + 6]*Ratio), int(p[5 + 7]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
+                // cv::putText(result_image, "4", cv::Point(int(p[5 + 8]*Ratio), int(p[5 + 9]*Ratio)), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 1);
 
 
                 // int eyeWidth = int(abs((p[5]*2 - p[5 + 2]))*0.25)
@@ -325,16 +327,16 @@ NullImplFRVT11::createTemplate(
                 dlib::assign_image(enroll_chipBGR, enroll_chip);
 
                 //for Bossun Debug save chip
-                cv::Mat enrollChipMat = dlib::toMat(enroll_chip);
-                debugImgMtx.lock();
-                std::time_t t = std::time(0);   // get time now
-                now = std::localtime(&t);
-                std::srand((unsigned) time(&t));
-                int randNum = rand() % 10000;
-                char chipFileName[512];
-				sprintf(chipFileName,"features/chip(%d)_(%d).jpg",faceFeatureCount,randNum);
-                dlib::save_jpeg(enroll_chip,chipFileName,100);
-                debugImgMtx.unlock();
+                // cv::Mat enrollChipMat = dlib::toMat(enroll_chip);
+                // debugImgMtx.lock();
+                // std::time_t t = std::time(0);   // get time now
+                // now = std::localtime(&t);
+                // std::srand((unsigned) time(&t));
+                // int randNum = rand() % 10000;
+                // char chipFileName[512];
+				// sprintf(chipFileName,"features/chip(%d)_(%d).jpg",faceFeatureCount,randNum);
+                // dlib::save_jpeg(enroll_chip,chipFileName,100);
+                // debugImgMtx.unlock();
                 //for Bossun Debug save chip
                 
                 // // cv::imwrite(chipFileName, enrollChipMat);
@@ -473,14 +475,15 @@ NullImplFRVT11::createTemplate(
                 TF_SessionOptions* options = TF_NewSessionOptions();
                 std::array<std::uint8_t, 13> config = {{ 0x0a ,0x07, 0x0a, 0x03, 0x43, 0x50, 0x55, 0x10, 0x01, 0x10, 0x01, 0x28, 0x01}};
                 TF_SetConfig(options, config.data(), config.size(), status);
-                TF_Session* session = tf_utils::CreateSession( graph, options, status );
+                if(session == NULL){
+                    session = tf_utils::CreateSession( graph, options, status );
+                }
                 // run Session
                 clock_t beginFR = clock();
                 const TF_Code code = tf_utils::RunSession( session, input_ops, input_tensors, out_ops, output_tensors );
                 clock_t endFR = clock();
                 // double time_spentFR = (double)(endFR - beginFR) / CLOCKS_PER_SEC;
                 // std::cout << "[INFO] FR TF execute time: "<<time_spentFR<< " sec spent" << std::endl;
-                SCOPE_EXIT{ tf_utils::DeleteSession(session); }; // Auto-delete on scope exit.
                 // get the data:
                 const std::vector<std::vector<float>> dataOutputResults = tf_utils::GetTensorsData<float>( output_tensors );
 

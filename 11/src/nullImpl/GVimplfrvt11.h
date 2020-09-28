@@ -162,6 +162,7 @@ private:
 
     //====================For FR====================//
     TF_Graph *graph;
+    TF_Session* session;
     // InferenceEngine::Core engine_ptr;
 	// InferenceEngine::InferRequest infer_request;
     // InferenceEngine::CNNNetwork network;
